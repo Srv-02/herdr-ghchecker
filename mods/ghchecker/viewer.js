@@ -13,7 +13,7 @@ import { entries, tally, loginOf } from "./lib/timeline.js";
 import { split, linkRefs } from "./lib/markdown.js";
 import { hostOf } from "./lib/images.js";
 import { mergeMethods, preferredMethod, mergeBlocked, canDeleteBranch, mergeArgs } from "./lib/merge.js";
-import { awaitingPath, awaitingRuns, approveArgs } from "./lib/approve.js";
+import { awaitingPath, awaitingRuns, approveArgs, runnerPaths, runnerVerdict } from "./lib/approve.js";
 import { ago, duration } from "./lib/time.js";
 
 const FIELDS = {
@@ -68,6 +68,10 @@ export class Viewer {
         // Runs of an open pull request that wait for approval (Approve and run).
         if (kind === "pr" && upper(item.state) === "OPEN" && item.headRefOid) {
           item.awaiting = awaitingRuns(await ghJson(["api", awaitingPath(this.repo, item.headRefOid)]).catch(() => null));
+          if (item.awaiting.length) {
+            const [own, org] = await Promise.all(runnerPaths(this.repo).map((p) => ghJson(["api", p]).catch(() => null)));
+            item.runners = runnerVerdict(own, org);
+          }
         }
         if (pages) this.threads[key] = entries(pages.flat());
         if (still()) this.item = item;
@@ -148,7 +152,7 @@ export class Viewer {
     if (!this.approving) { this.approving = true; cx.notify(); return; }
     this.approving = false;
     const runs = this.item?.awaiting ?? [], repo = this.repo, key = this.key();
-    if (this.busy || !runs.length) return;
+    if (this.busy || !runs.length || this.item?.runners?.blocked !== false) return;
     this.busy = "Approving"; this.error = null;
     cx.spawn(async (cx) => {
       try { for (const r of runs) await gh(approveArgs(repo, r.id)); notify({ title: "Runs approved", body: `${runs.length} workflow run${runs.length === 1 ? "" : "s"} of #${this.number}`, level: "success", timeout: 3000 }); }
@@ -379,9 +383,11 @@ export class Viewer {
   // The Checks part of a pull request whose runs wait for approval.
   approval(i, t) {
     const c = tones(t), n = i.awaiting.length, who = i.headRepositoryOwner?.login ?? i.author?.login ?? "the author", busy = Boolean(this.busy);
+    const runners = i.runners ?? { blocked: true, note: "Checking the runners…" }; // checked before the button works
     return v_flex().gap(8)
       .child(h_flex().gap(6).items_center().text_color(c.running).child(div().size(7).rounded(4).bg(c.running)).child(`${n} run${n === 1 ? "" : "s"} awaiting approval`))
-      .when(!this.approving, (e) => e.child(h_flex().child(button("approve", "Approve and run", t, (_e, cx) => this.approve(cx), { small: true, enabled: !busy }))))
+      .when(!this.approving, (e) => e.child(h_flex().child(button("approve", "Approve and run", t, (_e, cx) => this.approve(cx), { small: true, enabled: !busy && !runners.blocked }))))
+      .when(Boolean(runners.note), (e) => e.child(div().text_color(runners.blocked ? c.failure : t.muted).child(runners.note)))
       .when(Boolean(this.approving), (e) => e
         .child(div().text_color(t.foreground).child(`Runs code from ${who} on this repository's runners. Read the changes first.`))
         .child(h_flex().gap(6)

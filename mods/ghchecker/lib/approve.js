@@ -18,3 +18,18 @@ export function approveArgs(repo, id) {
   if (!Number.isInteger(Number(id)) || Number(id) <= 0) throw new Error(`not a run id: ${id}`);
   return ["api", "-X", "POST", `repos/${repo}/actions/runs/${Number(id)}/approve`];
 }
+
+// Self-hosted runners keep what a job leaves behind, so a stranger's code is never approved onto them.
+// The runners of the repository and of its organisation (each asked of the API; reading them needs admin
+// rights, so an answer may be missing).
+export const runnerPaths = (repo) => [`repos/${repo}/actions/runners?per_page=1`, `orgs/${repo.split("/")[0]}/actions/runners?per_page=1`];
+
+// From the two answers (null when the call failed): { blocked, note }. Any self-hosted runner blocks.
+// No answer at all: not blocked, but said so.
+export function runnerVerdict(repoAnswer, orgAnswer) {
+  const count = (a) => Number.isFinite(a?.total_count) ? a.total_count : null;
+  const own = count(repoAnswer), org = count(orgAnswer);
+  if (own > 0 || org > 0) return { blocked: true, note: "This repository can use self-hosted runners: approve it on GitHub, if at all." };
+  if (own === null && org === null) return { blocked: false, note: "Runners not checked (needs admin rights): approve only on GitHub-hosted runners." };
+  return { blocked: false, note: null };
+}

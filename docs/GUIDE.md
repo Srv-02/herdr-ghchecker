@@ -95,7 +95,7 @@ At the bottom, the same on every tab: stars, forks, watchers, open issues, open 
 
 ### Approve and run
 
-Workflow runs of a first-time contributor or a fork wait for a maintainer's approval. The PR overlay then shows `1 run awaiting approval` under Checks and **Approve and run**. The first click asks, the second approves every waiting run (`gh api -X POST repos/<repo>/actions/runs/<id>/approve`). Approving runs the pull request's code on the repository's runners: read the changes (Files) first. On GitHub-hosted runners each job gets a fresh machine, a pull request from a fork gets a read-only token and no secrets. Self-hosted runners keep what a job leaves behind: don't approve strangers' runs there.
+Workflow runs of a first-time contributor or a fork wait for a maintainer's approval. The PR overlay then shows `1 run awaiting approval` under Checks and **Approve and run**. The first click asks, the second approves every waiting run (`gh api -X POST repos/<repo>/actions/runs/<id>/approve`). Approving runs the pull request's code on the repository's runners: read the changes (Files) first. On GitHub-hosted runners each job gets a fresh machine, a pull request from a fork gets a read-only token and no secrets. Self-hosted runners keep what a job leaves behind: before the button works, the panel asks for the runners of the repository and of its organisation (`gh api repos/<repo>/actions/runners`, `gh api orgs/<owner>/actions/runners`). Any self-hosted runner locks the button with a note; approve such runs on GitHub, if at all. Reading the runners needs admin rights: without them the button works and says that the runners were not checked.
 
 ### Merge box
 
@@ -149,7 +149,7 @@ A dotted key (`"external.includeBots": true`) works too. All settings are define
 
 ## What it runs and touches
 
-- **gh**, here: `gh api user`, `gh issue list|view|comment|close|reopen`, `gh pr list|view|comment|close|reopen|merge`, `gh run list|view|rerun|cancel`, `gh repo view`, `gh api repos/<repo>/milestones` and `gh api repos/<repo>/issues/<n>/timeline`. `gh api repos/<repo>/actions/runs?head_sha=…` and `gh api -X POST …/approve`. Writes run only on your click: comment, close, reopen, merge, re-run, cancel, approve.
+- **gh**, here: `gh api user`, `gh issue list|view|comment|close|reopen`, `gh pr list|view|comment|close|reopen|merge`, `gh run list|view|rerun|cancel`, `gh repo view`, `gh api repos/<repo>/milestones` and `gh api repos/<repo>/issues/<n>/timeline`. `gh api repos/<repo>/actions/runs?head_sha=…`, `gh api repos/<repo>/actions/runners`, `gh api orgs/<owner>/actions/runners` and `gh api -X POST …/approve`. Writes run only on your click: comment, close, reopen, merge, re-run, cancel, approve.
 - **git**, in the terminal's folder (on its machine): `git remote -v`. Nothing else.
 - **Pictures** in issue bodies and avatars are downloaded with `curl`, but only from GitHub's own hosts: `github.com` (attachments under `/user-attachments/` and `/<login>.png` avatars), `avatars.githubusercontent.com`, `camo.githubusercontent.com` and the other `*.githubusercontent.com` hosts, over https only (also after redirects, at most 5), at most 20 MB. A picture from anywhere else is not loaded: it shows as `Image from <host> · open it`, a link to your browser. So a stranger's issue can't track when you read it or make this computer call an internal address.
 - **The gh token** goes along only for `github.com` itself (private attachments), on stdin, never on a command line. curl drops it when GitHub redirects to its storage host.

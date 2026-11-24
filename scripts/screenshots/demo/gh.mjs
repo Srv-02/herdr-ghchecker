@@ -131,6 +131,7 @@ if (a === "api" && b === "user") out(`${ME}\n`);
 if (a === "api" && args.some((x) => /\/milestones/.test(x))) out(MILESTONES);
 if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=4b825dc/.test(x))) out({ workflow_runs: [{ id: 9129, name: "CI", status: "action_required", conclusion: null }] });
 if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=/.test(x))) out({ workflow_runs: [] });
+if (a === "api" && args.some((x) => /^(repos\/[^/]+\/[^/]+|orgs\/[^/]+)\/actions\/runners/.test(x))) out({ total_count: 0, runners: [] });
 if (a === "api" && args.includes("POST")) out("");
 if (a === "api" && args.some((x) => /\/timeline/.test(x))) { const n = Number(/issues\/(\d+)\/timeline/.exec(args.find((x) => /timeline/.test(x)))[1]); out([TIMELINE[n] ?? []]); }
 if (a === "repo" && b === "view") out({ defaultBranchRef: { name: "main" }, squashMergeAllowed: true, mergeCommitAllowed: true, rebaseMergeAllowed: false, deleteBranchOnMerge: true,
