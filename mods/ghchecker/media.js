@@ -1,18 +1,25 @@
 // Avatars and the pictures in issue bodies, each fetched once into data/ghchecker/ of the herdr app folder.
+// Only from GitHub's own hosts (lib/images.js); any other picture is "blocked" and stays a link.
 // From herdr-github by alarboulletmarin (MIT), mods/github/media.js at 75a2b40 (the pure parts are in lib/markdown.js).
 import * as fs from "fs/promises";
 import { appHome, exec } from "herdr";
 import { sizeOf } from "./lib/markdown.js";
+import { imageAllowed, sendsToken } from "./lib/images.js";
 
-const known = new Map(); // key → "loading" | "missing" | { path, file, width?, height? }
+const known = new Map(); // key → "loading" | "missing" | "blocked" | { path, file, width?, height? }
 const nameOf = (s) => { let h = 5381; for (const c of s) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return h.toString(36); };
 
+// curl: https only, also after a redirect, at most 5 redirects, at most 20 MB, 30 s.
+const CURL = 'curl -fsSL --proto =https --proto-redir =https --max-redirs 5 --max-filesize 20M --max-time 30';
+
 async function fetchTo(url, file) {
-  // Private attachments need the gh token: it goes only to github.com, on stdin (printf is a shell
-  // builtin, so never on a command line), and curl drops it on GitHub's redirect to its storage host.
-  const get = /^https:\/\/github\.com\//.test(url)
-    ? 'printf "Authorization: token %s\\n" "$(gh auth token)" | curl -fsSL --max-time 30 -H @- -o "$1" "$2"'
-    : 'curl -fsSL --max-time 30 -o "$1" "$2"';
+  if (!imageAllowed(url)) return false;
+  // Private attachments need the gh token: it goes only to github.com, on stdin (printf is a shell builtin, so
+  // never on a command line). GitHub redirects attachments to its storage host; curl sends a header given with -H
+  // to the first host only and drops Authorization when a redirect changes the host (no --location-trusted here).
+  const get = sendsToken(url)
+    ? `printf "Authorization: token %s\\n" "$(gh auth token)" | ${CURL} -H @- -o "$1" "$2"`
+    : `${CURL} -o "$1" "$2"`;
   const r = await exec("sh", ["-c", `${get} || { rm -f "$1"; exit 1; }`, "sh", file, url]).catch(() => null);
   return r?.code === 0;
 }
@@ -28,6 +35,7 @@ async function measure(file) {
 export function want(url, { dir = "images", key = url, sized = true } = {}) {
   const got = known.get(key);
   if (got !== undefined) return { got: got === "loading" ? null : got };
+  if (!imageAllowed(url)) { known.set(key, "blocked"); return { got: "blocked" }; }
   known.set(key, "loading");
   const pending = (async () => {
     const path = `data/ghchecker/${dir}/${nameOf(key)}.png` /* the loader sniffs the format; the extension only has to be one it knows */, file = `${appHome()}/${path}`;

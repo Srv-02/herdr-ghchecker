@@ -11,6 +11,7 @@ import { tones, alpha, glyph, glyphOf, spinner, button, segmented, labelChip, pi
 import { issueState, prState, runState, checksOf, reviewOf } from "./lib/status.js";
 import { entries, tally, loginOf } from "./lib/timeline.js";
 import { split, linkRefs } from "./lib/markdown.js";
+import { hostOf } from "./lib/images.js";
 import { mergeMethods, preferredMethod, mergeBlocked, canDeleteBranch, mergeArgs } from "./lib/merge.js";
 import { ago, duration } from "./lib/time.js";
 
@@ -164,6 +165,13 @@ export class Viewer {
     const { got, pending } = want(part.image);
     this.waitFor(pending, cx);
     if (!got?.path) {
+      // Not loaded from outside GitHub (lib/images.js): a link to open it in the browser.
+      if (got === "blocked") {
+        return h_flex().id(key).h(36).w_full().flex_none().px(12).gap(8).items_center().justify_center().rounded(6).border_1().border_color(t.border).bg(t.raised)
+          .text_size(12).text_color(t.muted).cursor_pointer().tooltip(part.image).hover((s) => s.text_color(t.foreground)).on_click(() => openUrl(part.image))
+          .child(glyph("image", 14, t.muted))
+          .child(div().min_w(0).truncate().child(`Image from ${hostOf(part.image)}${part.alt ? ` (${part.alt})` : ""} · open it`));
+      }
       const lost = got === "missing";
       return h_flex().id(key).h(lost ? 36 : 120).w_full().flex_none().px(12).gap(8).items_center().justify_center().rounded(6).border_1().border_color(t.border).bg(t.raised)
         .text_size(12).text_color(t.muted).cursor_pointer().on_click(() => openUrl(part.image))

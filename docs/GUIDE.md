@@ -147,7 +147,8 @@ A dotted key (`"external.includeBots": true`) works too. All settings are define
 
 - **gh**, here: `gh api user`, `gh issue list|view|comment|close|reopen`, `gh pr list|view|comment|close|reopen|merge`, `gh run list|view|rerun|cancel`, `gh repo view`, `gh api repos/<repo>/milestones` and `gh api repos/<repo>/issues/<n>/timeline`. Writes run only on your click: comment, close, reopen, merge, re-run, cancel.
 - **git**, in the terminal's folder (on its machine): `git remote -v`. Nothing else.
-- **Pictures** in issue bodies and avatars are downloaded with `curl`; for private attachments on `github.com` the gh token is passed on stdin, never on a command line.
+- **Pictures** in issue bodies and avatars are downloaded with `curl`, but only from GitHub's own hosts: `github.com` (attachments under `/user-attachments/` and `/<login>.png` avatars), `avatars.githubusercontent.com`, `camo.githubusercontent.com` and the other `*.githubusercontent.com` hosts, over https only (also after redirects, at most 5), at most 20 MB. A picture from anywhere else is not loaded: it shows as `Image from <host> · open it`, a link to your browser. So a stranger's issue can't track when you read it or make this computer call an internal address.
+- **The gh token** goes along only for `github.com` itself (private attachments), on stdin, never on a command line. curl drops it when GitHub redirects to its storage host.
 - **Files:** `data/ghchecker/` in the Herdr app folder holds one cache file per repository, the pictures and the avatars. The filters, the tab and the last merge method are kept in the mod's own storage. `ghchecker.json` is only read.
 - **Shared values:** `workspace.panels` (adds `ghchecker` so the tab bar restores the panel), `ghchecker.pick` (menus to the panel) and `ghchecker.changed` (an overlay asks the panel to sync).
 
