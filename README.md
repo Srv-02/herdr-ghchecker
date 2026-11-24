@@ -9,6 +9,7 @@
 - **Pull requests:** state, branch, checks and review at a glance, and a merge box that offers only what the repository allows.
 - **Actions:** runs with status, workflow, trigger, branch and time; jobs, steps and the failure log; re-run or cancel.
 - **At a glance:** stars, forks, watchers, open issues and pull requests, and the latest release in the status bar.
+- **Compact:** one line per row at the press of a button, and smooth scrolling through hundreds of issues.
 - **Quiet:** syncs only while the panel is shown, every 60 s, every 12 s while a run is in progress.
 
 <br>

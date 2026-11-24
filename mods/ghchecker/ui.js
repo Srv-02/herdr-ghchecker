@@ -49,7 +49,7 @@ export function segmented(id, items, value, t, onPick) {
   return h_flex().id(id).flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
     .children(items.map(([key, label]) => {
       const on = key === value;
-      return div().id(`${id}-${key}`).px(8).py(3).rounded(6).text_size(12).cursor_pointer()
+      return div().id(`${id}-${key}`).px(7).py(2).rounded(6).text_size(12).cursor_pointer()
         .bg(on ? t.selected : CLEAR).text_color(on ? t.foreground : t.muted)
         .hover((s) => s.text_color(t.foreground))
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())

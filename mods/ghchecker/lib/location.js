@@ -2,12 +2,14 @@
 
 // The focused terminal's folder, machine and git branch. `on` is the machine of a remote terminal (null on this
 // computer): a terminal block shown in the layout has no pane, its address "<machine>/<id>" names it.
-// A focused mod pane has no folder of its own: it keeps the last location.
+// A focused mod pane or mod block has no folder of its own: it keeps the last location.
 // Adapted from jankeesvw/herdr-issues (MIT), mods/issues/main.js, location().
 export function locationOf({ spaces, focused, panes }, last = null) {
   const space = (spaces ?? []).find((s) => s.active), f = focused;
   const pane = f?.pane ? (panes ?? []).find((p) => p.pane === f.pane) : null;
   if (pane && !pane.terminal && last) return last;
+  // A layout block of a mod has the keyboard (a click into this panel, or into Files): no pane, no terminal.
+  if (f && !f.pane && !f.terminal && last) return last;
   const on = f?.pane === null ? (f.terminal?.includes("/") ? f.terminal.split("/")[0] : null) : space?.machine ?? null;
   return { cwd: pane?.cwd || f?.cwd || space?.folder || null, on, branch: pane?.branch ?? space?.branch ?? null };
 }

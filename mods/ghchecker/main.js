@@ -3,7 +3,7 @@
 // One mod, several roles by props: the panel (none), its button in the tab bar ({ button: true }), and as
 // overlays of the panel the issue or pull request ({ item }), the run ({ run }) and the small menus ({ menu }).
 import { View, div } from "gpui-kit";
-import { v_flex, h_flex, InputState, Input } from "gpui-base";
+import { v_flex, h_flex, InputState, Input, v_virtual_list, Scrollbar } from "gpui-base";
 import { spaces, panes, focused, home, appHome, readTextFile, layout, theme, openOverlay, closeOverlay, props, shared, setShared, run, nextCommand, checking, window as hostWindow } from "herdr";
 import { account, repoOf } from "./gh.js";
 import { Store } from "./store.js";
@@ -13,7 +13,7 @@ import { tones, alpha, glyph, glyphOf, spinner, button, segmented, chip, labelCh
 import { issueState, prState, runState, checksSummary, reviewOf, actionsDot, running } from "./lib/status.js";
 import { ago, age, day, duration } from "./lib/time.js";
 import { groupByMilestone } from "./lib/milestones.js";
-import { SORTS, filterIssues, filterPrs, filterRuns, workflowsOf } from "./lib/filters.js";
+import { SORTS, DEFAULTS, filterIssues, filterPrs, filterRuns, workflowsOf, filtersActive } from "./lib/filters.js";
 import { locationOf, locationKey, shortPath, repoUrl } from "./lib/location.js";
 import { loadSettings, defaults } from "./lib/settings.js";
 import { statsOf, statsDue } from "./lib/stats.js";
@@ -24,13 +24,7 @@ const SYNC = 60000;    // a full sync of the shown repository
 const LIVE = 12000;    // the runs while one is queued or in progress
 const FRESH = 15000;   // switching to a repository synced this recently fetches nothing
 const MISS = 30000;    // a folder without a GitHub remote is asked again after this
-const PAGE = 100;      // rows drawn at once
 const TABS = [["issues", "Issues", "issue-open"], ["prs", "PRs", "pr-open"], ["actions", "Actions", "actions"]];
-const DEFAULTS = {
-  issues: { state: "open", who: "all", sort: "newest", group: false },
-  prs: { state: "open", who: "all", sort: "updated" },
-  actions: { show: "all", workflow: null },
-};
 
 // An author as GitHub shows one: apps without their "app/" prefix, a deleted account as "ghost".
 const who = (author) => String(author?.login ?? "ghost").replace(/^app\//, "");
@@ -71,11 +65,11 @@ export default class GhChecker extends View {
     this.tab = remembered("tab", "issues");
     const saved = remembered("filters", {});
     this.f = Object.fromEntries(Object.entries(DEFAULTS).map(([k, v]) => [k, { ...v, ...(saved[k] ?? {}) }]));
-    this.limit = PAGE; this.query = { issues: "", prs: "" };
+    this.query = { issues: "", prs: "" }; this.compact = remembered("compact", false); this.filtering = remembered("filtering", false);
     this.inputs = {};
     for (const [tab, placeholder] of [["issues", "Filter issues"], ["prs", "Filter pull requests"]]) {
       const input = InputState.new({ placeholder });
-      input.on("change", (_e, cx) => { this.query[tab] = input.value(); this.limit = PAGE; cx.notify(); });
+      input.on("change", (_e, cx) => { this.query[tab] = input.value(); cx.notify(); });
       this.inputs[tab] = input;
     }
     this.pickedAt = shared("ghchecker.pick")?.at; this.changedAt = shared("ghchecker.changed")?.at;
@@ -84,7 +78,7 @@ export default class GhChecker extends View {
     this.readSettings(cx);
     cx.timer.every(TICK, (cx) => this.tick(cx));
     // keys.json: "alt-g i": "ghchecker:issues", or prs, actions, refresh, open (the first row), group (by milestone),
-    // failed (the failed runs).
+    // failed (the failed runs), compact (one line per row, or two), filter (show or hide the filters).
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -92,6 +86,8 @@ export default class GhChecker extends View {
         else if (c === "refresh") this.sync(cx, true);
         else if (c === "open") this.openFirst();
         else if (c === "group") this.setFilter("issues", { group: !this.f.issues.group }, cx);
+        else if (c === "compact") this.setCompact(!this.compact, cx);
+        else if (c === "filter") this.setFiltering(!this.filtering, cx);
         else if (c === "failed") { this.setFilter("actions", { show: "failed" }, cx); this.setTab("actions", cx); }
         cx.notify();
       }
@@ -152,9 +148,11 @@ export default class GhChecker extends View {
     else if (now - (this.drawnAt ?? 0) > 30000) cx.notify(); // "Updated 2m ago" moves on
   }
 
-  setTab(tab, cx) { this.tab = tab; this.limit = PAGE; keep("tab", tab); cx.notify(); }
+  setCompact(on, cx) { this.compact = on; keep("compact", on); cx.notify(); }
+  setFiltering(on, cx) { this.filtering = on; keep("filtering", on); cx.notify(); }
+  setTab(tab, cx) { this.tab = tab; keep("tab", tab); cx.notify(); }
   setFilter(tab, patch, cx) {
-    this.f[tab] = { ...this.f[tab], ...patch }; this.limit = PAGE;
+    this.f[tab] = { ...this.f[tab], ...patch };
     keep("filters", this.f);
     const part = tab === "issues" || tab === "prs" ? `${tab}:${this.f[tab].state}` : null;
     if (part && this.shown && !(part in this.store.entry(this.shown).data)) this.sync(cx, false, [part]);
@@ -189,59 +187,67 @@ export default class GhChecker extends View {
   }
 
   // ---- drawing: rows ----
-  row(id, t, onClick) {
-    return h_flex().id(id).flex_none().px(8).py(8).gap(9).items_start().rounded(7).cursor_pointer()
-      .hover((s) => s.bg(t.hover)).on_click(onClick);
+  // Rows have a fixed height (one line in compact view, two otherwise) so the list can be virtual: only what is
+  // on screen is drawn, which keeps scrolling smooth with hundreds of issues. A virtual list's rows take no
+  // handlers; the list reports clicks by key (list() below).
+  row(size, t) {
+    return h_flex().h(size).w_full().flex_none().px(8).gap(9).items_center().rounded(7).cursor_pointer().overflow_hidden().hover((s) => s.bg(t.hover));
   }
-  meta(text, chips, t) {
-    return h_flex().gap(6).flex_wrap().items_center().text_size(11).text_color(t.muted).child(div().child(text)).children(chips);
+  // Title line and meta line of a two-line row; the meta line never wraps.
+  lines(title, meta, chips, t, extra = null) {
+    return v_flex().flex_1().min_w(0).gap(3)
+      .child(div().truncate().font_medium().child(title))
+      .child(h_flex().gap(6).items_center().overflow_hidden().text_size(11).text_color(t.muted)
+        .child(div().flex_none().child(meta)).children(chips)
+        .when(Boolean(extra), (e) => e.child(div().min_w(0).truncate().text_color(t.dim).font_family(MONO).child(extra))));
+  }
+  side(t, top, bottom) {
+    return v_flex().flex_none().items_end().gap(3).text_size(11).text_color(t.muted).child(top).when(Boolean(bottom), (e) => e.child(bottom));
   }
 
-  issueRow(i, t, c) {
-    const s = issueState(i), chips = (i.labels ?? []).slice(0, 4).map((l) => labelChip(l, t));
-    return this.row(`issue-${i.number}`, t, () => this.openItem(i, "issue"))
-      .child(div().pt(1).child(glyph(s.icon, 15, c[s.tone])))
-      .child(v_flex().flex_1().min_w(0).gap(4)
-        .child(div().font_medium().child(i.title))
-        .child(this.meta(`#${i.number} · ${ago(i.createdAt)} by ${who(i.author)}`, chips, t)))
-      .when(i.commentCount > 0, (e) => e.child(h_flex().flex_none().gap(3).items_center().text_size(11).text_color(t.muted)
-        .child(glyph("comment", 12, t.muted)).child(String(i.commentCount))));
+  issueRow(i, t, c, size) {
+    const s = issueState(i), comments = i.commentCount > 0
+      ? h_flex().gap(3).items_center().child(glyph("comment", 12, t.muted)).child(String(i.commentCount)) : div();
+    if (this.compact) return this.row(size, t).child(glyph(s.icon, 14, c[s.tone]))
+      .child(div().w(42).flex_none().text_size(11).text_color(t.muted).child(`#${i.number}`))
+      .child(div().flex_1().min_w(0).truncate().child(i.title))
+      .child(div().flex_none().text_size(11).text_color(t.muted).child(comments));
+    return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
+      .child(this.lines(i.title, `#${i.number} · ${ago(i.createdAt)} by ${who(i.author)}`, (i.labels ?? []).slice(0, 3).map((l) => labelChip(l, t)), t))
+      .child(this.side(t, comments));
   }
 
-  prRow(p, t, c) {
-    const s = prState(p), checks = checksSummary(p), review = reviewOf(p);
-    const chips = [...(p.isDraft ? [chip("draft", t.muted)] : []), ...(p.labels ?? []).slice(0, 3).map((l) => labelChip(l, t))];
+  prRow(p, t, c, size) {
+    const s = prState(p), checks = checksSummary(p), review = reviewOf(p), open = String(p.state).toUpperCase() === "OPEN";
     const head = p.isCrossRepository && p.headRepositoryOwner?.login ? `${p.headRepositoryOwner.login}:${p.headRefName}` : p.headRefName;
-    const open = String(p.state).toUpperCase() === "OPEN";
-    return this.row(`pr-${p.number}`, t, () => this.openItem(p, "pr"))
-      .child(div().pt(1).child(glyph(s.icon, 15, c[s.tone])))
-      .child(v_flex().flex_1().min_w(0).gap(4)
-        .child(div().font_medium().child(p.title))
-        .child(this.meta(`#${p.number} · ${ago(p.updatedAt)} by ${who(p.author)}`, chips, t))
-        .child(div().truncate().text_size(11).text_color(t.dim).font_family(MONO).child(`${head} → ${p.baseRefName}`)))
-      .child(v_flex().flex_none().items_end().gap(5).text_size(11)
-        .child(h_flex().gap(4).items_center().text_color(c[checks.tone]).child(div().size(7).rounded(4).bg(c[checks.tone])).child(checks.label))
-        .when(open, (e) => e.child(div().text_color(c[review.tone]).child(review.label))));
+    const dot = h_flex().gap(4).items_center().text_color(c[checks.tone]).child(div().size(7).rounded(4).bg(c[checks.tone])).child(checks.label);
+    if (this.compact) return this.row(size, t).child(glyph(s.icon, 14, c[s.tone]))
+      .child(div().w(42).flex_none().text_size(11).text_color(t.muted).child(`#${p.number}`))
+      .child(div().flex_1().min_w(0).truncate().child(p.title))
+      .child(div().flex_none().text_size(11).child(dot));
+    const chips = [...(p.isDraft ? [chip("draft", t.muted)] : []), ...(p.labels ?? []).slice(0, 2).map((l) => labelChip(l, t))];
+    return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
+      .child(this.lines(p.title, `#${p.number} · ${ago(p.updatedAt)} by ${who(p.author)}`, chips, t, `${head} → ${p.baseRefName}`))
+      .child(this.side(t, dot, open ? div().text_color(c[review.tone]).child(review.label) : null));
   }
 
-  runRow(r, t, c) {
+  runRow(r, t, c, size) {
     const s = runState(r), done = !running(r);
     const took = done ? duration(r.startedAt ?? r.createdAt, r.updatedAt) : duration(r.startedAt ?? r.createdAt, null);
-    return this.row(`run-${r.databaseId}`, t, () => this.openRun(r))
-      .child(div().pt(1).child(glyphOf(s.icon, 15, c[s.tone])))
-      .child(v_flex().flex_1().min_w(0).gap(4)
-        .child(div().font_medium().truncate().child(r.displayTitle))
-        .child(div().text_size(11).text_color(t.muted).child(`${r.workflowName} #${r.number} · ${r.event}`))
-        .child(div().truncate().text_size(11).text_color(t.dim).font_family(MONO).child(r.headBranch ?? "")))
-      .child(v_flex().flex_none().items_end().gap(5).text_size(11).text_color(t.muted)
-        .child(div().text_color(c[s.tone]).child(s.label))
-        .child(div().child(done ? `${took} · ${age(r.createdAt)}` : took)));
+    const time = done ? `${took} · ${age(r.createdAt)}` : took;
+    if (this.compact) return this.row(size, t).child(glyphOf(s.icon, 14, c[s.tone]))
+      .child(div().flex_1().min_w(0).truncate().child(r.displayTitle))
+      .child(div().flex_none().text_size(11).text_color(c[s.tone]).child(s.label))
+      .child(div().flex_none().text_size(11).text_color(t.muted).child(time));
+    return this.row(size, t).child(glyphOf(s.icon, 15, c[s.tone]))
+      .child(this.lines(r.displayTitle, `${r.workflowName} #${r.number} · ${r.event}`, [], t, r.headBranch ?? ""))
+      .child(this.side(t, div().text_color(c[s.tone]).child(s.label), div().child(time)));
   }
 
   // A milestone's heading: its name, when it is due, how many of its issues are done, and a bar.
-  groupHeading(g, t, c) {
+  groupHeading(g, t, c, size) {
     const share = g.total ? Math.round((g.done * 100) / g.total) : 0;
-    return v_flex().id(`group-${g.key}`).flex_none().px(8).pt(10).pb(6).gap(5)
+    return v_flex().h(size).w_full().flex_none().px(8).pt(10).gap(5)
       .child(h_flex().gap(8).items_center().text_size(12)
         .child(div().min_w(0).truncate().font_semibold().text_color(g.progress ? t.foreground : t.muted).child(g.title))
         .when(Boolean(g.progress), (e) => e.child(div().flex_none().text_color(t.muted).child(g.due ? `due ${day(g.due)}` : "no due date")))
@@ -260,7 +266,7 @@ export default class GhChecker extends View {
     else if (live && this.tab === "actions") { status = `${live} run${live > 1 ? "s" : ""} in progress · every ${LIVE / 1000} s`; tone = c.running; }
     else if (e?.at) status = `Updated ${ago(new Date(e.at).toISOString())}`;
     const where = repo === null ? shortPath(this.where().cwd, home()) : repo;
-    return h_flex().h(48).flex_none().pl(14).pr(10).gap(8).items_center().border_b(1).border_color(t.border)
+    return h_flex().h(44).flex_none().pl(14).pr(10).gap(8).items_center().border_b(1).border_color(t.border)
       .child(glyph("github", 15, t.foreground))
       .child(div().font_semibold().child("GitHub"))
       .child(v_flex().flex_1().min_w(0).items_end()
@@ -271,6 +277,10 @@ export default class GhChecker extends View {
             .on_click(() => openUrl(repoUrl(repo))).child(repo)
           : div().max_w_full().truncate().text_size(12).text_color(t.muted).font_family(MONO).child(where ?? ""))
         .when(Boolean(status), (x) => x.child(div().id("sync-status").max_w_full().truncate().text_size(11).text_color(tone).when(Boolean(e?.error), (y) => y.tooltip(e.error)).child(status))))
+      .when(Boolean(repo), (x) => x.child(this.headButton("filter", "filter", this.filtering, filtersActive(this.tab, this.f[this.tab], this.query[this.tab]),
+        this.filtering ? "Hide filters" : "Show filters", (cx) => this.setFiltering(!this.filtering, cx), t, c)))
+      .when(Boolean(repo), (x) => x.child(this.headButton("compact", "list", this.compact, false,
+        this.compact ? "Two lines per row" : "Compact view", (cx) => this.setCompact(!this.compact, cx), t, c)))
       .when(Boolean(repo), (x) => x.child(div().id("refresh").size(30).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border)
         .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Refresh")
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -278,12 +288,23 @@ export default class GhChecker extends View {
         .child(e?.syncing ? spinner(13, t.muted) : glyph("refresh", 13, t.muted))));
   }
 
+  // A square button in the header; `marked` shows a dot (a filter is set while the bar is hidden).
+  headButton(id, name, on, marked, tip, onClick, t, c) {
+    return div().id(id).relative().size(30).flex_none().flex().items_center().justify_center().rounded(7).border_1()
+      .border_color(on ? alpha(c.link, "99") : t.border).bg(on ? alpha(c.link, "1f") : CLEAR)
+      .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip)
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_click((_e, cx) => onClick(cx))
+      .child(glyph(name, 13, on || marked ? c.link : t.muted))
+      .when(marked && !on, (e) => e.child(div().absolute().top(4).right(4).size(6).rounded(3).bg(c.link)));
+  }
+
   tabs(t, c) {
     const d = this.data(), dot = actionsDot(d.runs, d.info?.defaultBranchRef?.name);
-    return h_flex().flex_none().px(8).py(6).gap(4).border_b(1).border_color(t.border)
+    return h_flex().flex_none().px(6).py(4).gap(4).border_b(1).border_color(t.border)
       .children(TABS.map(([key, label, name]) => {
         const on = key === this.tab;
-        return h_flex().id(`tab-${key}`).flex_1().min_w(0).h(30).gap(6).items_center().justify_center().rounded(7).cursor_pointer()
+        return h_flex().id(`tab-${key}`).flex_1().min_w(0).h(26).gap(5).text_size(12).items_center().justify_center().rounded(7).cursor_pointer()
           .bg(on ? t.selected : CLEAR).text_color(on ? t.foreground : t.muted).when(on, (e) => e.font_medium())
           .hover((s) => s.bg(on ? t.selected : t.hover))
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -296,14 +317,14 @@ export default class GhChecker extends View {
 
   filterInput(tab, t, sortKey) {
     return h_flex().gap(6)
-      .child(div().id(`filter-${tab}`).flex_1().min_w(0).h(28).px(9).flex().items_center().rounded(7).border_1().border_color(t.border).cursor_text()
+      .child(div().id(`filter-${tab}`).flex_1().min_w(0).h(26).px(8).flex().items_center().rounded(7).border_1().border_color(t.border).cursor_text()
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
         .child(Input.new(this.inputs[tab]).w_full().h_full().text_size(12).text_color(t.foreground)))
       .child(this.dropButton(`sort-${tab}`, SORTS[sortKey]?.label ?? "Newest", t,
         () => this.openMenu("sort", tab, Object.entries(SORTS).map(([k, s]) => [k, s.label]), sortKey)));
   }
   dropButton(id, label, t, onClick, grow = false) {
-    return h_flex().id(id).h(28).px(9).gap(6).items_center().rounded(7).border_1().border_color(t.border).text_size(12).text_color(t.muted)
+    return h_flex().id(id).h(26).px(8).gap(6).items_center().rounded(7).border_1().border_color(t.border).text_size(12).text_color(t.muted)
       .when(grow, (e) => e.flex_1().min_w(0).justify_between()).when(!grow, (e) => e.flex_none())
       .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -312,13 +333,13 @@ export default class GhChecker extends View {
   }
 
   filterBar(t, c) {
-    const d = this.data(), bar = v_flex().flex_none().p(8).gap(6).border_b(1).border_color(t.border);
+    const d = this.data(), bar = v_flex().flex_none().px(6).py(5).gap(5).border_b(1).border_color(t.border);
     if (this.tab === "issues") {
       const f = this.f.issues;
       return bar.child(this.filterInput("issues", t, f.sort))
         .child(h_flex().gap(6).items_center()
           .child(segmented("issue-state", [["open", "Open"], ["closed", "Closed"]], f.state, t, (k, cx) => this.setFilter("issues", { state: k }, cx)))
-          .child(h_flex().id("group-toggle").h(26).px(8).gap(5).flex_none().items_center().rounded(7).border_1().text_size(12).cursor_pointer()
+          .child(h_flex().id("group-toggle").h(24).px(7).gap(5).flex_none().items_center().rounded(7).border_1().text_size(12).cursor_pointer()
             .border_color(f.group ? alpha(c.link, "99") : t.border).bg(f.group ? alpha(c.link, "1f") : CLEAR).text_color(f.group ? t.foreground : t.muted)
             .hover((s) => s.text_color(t.foreground)).tooltip("Group by milestone")
             .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -359,9 +380,23 @@ export default class GhChecker extends View {
   // ---- drawing: the list ----
   empty(t, text) { return div().px(16).py(28).text_size(12).text_center().text_color(t.dim).child(text); }
 
+  // The rows as entries { key, size, draw, open }: what the virtual list places and what a click opens.
+  entries(rows, t, c) {
+    const tab = this.tab, size = this.compact ? 28 : 46, entry = (key, draw, open) => ({ key, size, draw, open });
+    if (tab === "issues" && this.f.issues.group) {
+      return groupByMilestone(rows, this.data().milestones ?? []).flatMap((g) => [
+        { key: `g:${g.key}`, size: g.progress ? 40 : 32, draw: (sz) => this.groupHeading(g, t, c, sz), open: null },
+        ...g.items.map((i) => entry(`i:${i.number}`, (sz) => this.issueRow(i, t, c, sz), () => this.openItem(i, "issue"))),
+      ]);
+    }
+    if (tab === "issues") return rows.map((i) => entry(`i:${i.number}`, (sz) => this.issueRow(i, t, c, sz), () => this.openItem(i, "issue")));
+    if (tab === "prs") return rows.map((p) => entry(`p:${p.number}`, (sz) => this.prRow(p, t, c, sz), () => this.openItem(p, "pr")));
+    return rows.map((r) => entry(`r:${r.databaseId}`, (sz) => this.runRow(r, t, c, sz), () => this.openRun(r)));
+  }
+
   list(t, c) {
     const e = this.store.entry(this.shown), rows = this.rows(), tab = this.tab, f = this.f[tab];
-    const box = v_flex().id(`list-${tab}`).flex_1().min_h(0).overflow_y_scrollbar().p(6).gap(1);
+    const box = v_flex().flex_1().min_h(0).relative().px(6).py(4);
     if (!rows) return box.child(e.error && !e.syncing ? this.empty(t, e.error) : this.empty(t, tab === "actions" ? "Loading runs…" : tab === "prs" ? "Loading pull requests…" : "Loading issues…"));
     if (!rows.length) {
       const what = tab === "actions" ? (f.show === "failed" ? "No failed runs" : f.show === "branch" ? `No runs on ${this.where().branch ?? "this branch"}` : "No workflow runs")
@@ -369,14 +404,14 @@ export default class GhChecker extends View {
         : this.query.issues.trim() ? "No issues match" : `No ${f.state} issues${{ mine: " of yours", external: " by others" }[f.who] ?? ""}`;
       return box.child(this.empty(t, what));
     }
-    const shown = rows.slice(0, this.limit), more = rows.length - shown.length;
-    let children;
-    if (tab === "issues" && f.group) {
-      children = groupByMilestone(shown, this.data().milestones ?? []).flatMap((g) => [this.groupHeading(g, t, c), ...g.items.map((i) => this.issueRow(i, t, c))]);
-    } else children = shown.map((x) => tab === "issues" ? this.issueRow(x, t, c) : tab === "prs" ? this.prRow(x, t, c) : this.runRow(x, t, c));
-    return box.children(children)
-      .when(more > 0, (x) => x.child(h_flex().flex_none().py(10).justify_center()
-        .child(button("more", `Show ${Math.min(PAGE, more)} more · ${more} left`, t, (_e, cx) => { this.limit += PAGE; cx.notify(); }, { small: true }))));
+    const items = this.entries(rows, t, c), byKey = new Map(items.map((x) => [x.key, x]));
+    const id = `list-${tab}`;
+    return box
+      .child(v_virtual_list(id, items.length, items.map((x) => x.size), (n) => items[n].key,
+        (range) => items.slice(range.start, range.end).map((x) => x.draw(x.size)))
+        .size_full()
+        .on_item_click((key) => byKey.get(key)?.open?.()))
+      .child(Scrollbar.vertical(id).absolute().inset_0());
   }
 
   shell(t) {
@@ -446,7 +481,7 @@ export default class GhChecker extends View {
     this.ctx = locationKey(this.where());
     const repo = this.repo(cx);
     if (repo !== this.shown && repo !== undefined) {
-      this.shown = repo; this.limit = PAGE;
+      this.shown = repo;
       if (repo) {
         const e = this.store.entry(repo);
         cx.spawn(async (cx) => { await this.store.read(repo); cx.notify(); if (Date.now() - e.at > FRESH) this.sync(cx); });
@@ -462,7 +497,7 @@ export default class GhChecker extends View {
     return this.shell(t)
       .child(this.header(t, c, this.shown))
       .child(this.tabs(t, c))
-      .child(this.filterBar(t, c))
+      .when(this.filtering, (x) => x.child(this.filterBar(t, c)))
       .child(this.list(t, c))
       .child(this.statusBar(t));
   }

@@ -68,3 +68,10 @@ test("shortPath and repoUrl", () => {
   assert.equal(repoUrl("acme/acme-app/issues"), null);
   assert.equal(repoUrl("javascript:alert(1)"), null);
 });
+
+test("locationOf: a click into a mod block (no pane, no terminal) keeps the last location", () => {
+  const last = { cwd: "/Users/mona/git/acme-app", on: null, branch: "main" };
+  const other = [{ id: "s1", active: true, folder: "/Users/mona", machine: null, branch: null }];
+  assert.equal(locationOf({ spaces: other, panes, focused: { space: "s1", pane: null, terminal: null, cwd: null } }, last), last);
+  assert.equal(locationOf({ spaces: other, panes, focused: { space: "s1", pane: null, terminal: null, cwd: null } }).cwd, "/Users/mona", "no last: the space folder");
+});

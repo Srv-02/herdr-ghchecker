@@ -33,7 +33,7 @@ sleep 5
 do_ layout.show '{"id":"panel"}'
 sleep 6
 # Each card: the panel or overlay in its state, set by the mod's commands.
-if want issues || want hero; then do_ ghchecker.issues; do_ ghchecker.group; sleep 3; shot issues; do_ ghchecker.group; fi
+if want issues || want hero; then do_ ghchecker.issues; do_ ghchecker.filter; do_ ghchecker.group; sleep 3; shot issues; do_ ghchecker.group; do_ ghchecker.filter; fi
 if want prs || want hero; then do_ ghchecker.prs; sleep 3; shot prs; fi
 if want pr-overlay || want hero; then do_ ghchecker.prs; sleep 1; do_ ghchecker.open; sleep 5; shot pr-overlay; do_ overlay.close; sleep 1; fi
 if want actions; then do_ ghchecker.actions; sleep 3; shot actions; fi

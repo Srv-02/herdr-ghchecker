@@ -29,6 +29,10 @@ const ISSUES_OPEN = [
   issue(33, "Explain webhook retries in the docs", ME, 60 * 24 * 4, [DOCS], null, 0, "How often and how long do we retry a failed webhook?"),
   issue(29, "Flaky test in cart totals", ME, 60 * 24 * 6, [BUG], V10, 1, "`cart totals > applies coupons` fails about once in twenty runs."),
 ];
+// GHC_DEMO_MANY=1 in the instance's environment adds 200 more issues, to try scrolling and long titles.
+if (process.env.GHC_DEMO_MANY) for (let n = 0; n < 200; n++) {
+  ISSUES_OPEN.push(issue(300 + n, `Generated issue ${n} with a rather long title that does not fit on one line of the panel at all`, n % 3 ? ME : "octocat", 60 * 24 * 7 + n * 30, n % 2 ? [BUG] : [FEATURE, DOCS], n % 4 ? V11 : null, n % 5, ""));
+}
 const ISSUES_CLOSED = [
   { ...issue(31, "Coupon field accepts spaces", "octocat", 60 * 24 * 9, [BUG], V10, 2, "Trim the code before checking it."), state: "CLOSED", stateReason: "COMPLETED" },
   { ...issue(27, "Add a sitemap", ME, 60 * 24 * 12, [FEATURE], null, 0, ""), state: "CLOSED", stateReason: "NOT_PLANNED" },
@@ -123,28 +127,33 @@ const TIMELINE = {
 };
 
 const args = process.argv.slice(2), has = (f) => args.includes(f), val = (f) => args[args.indexOf(f) + 1];
-const out = (v) => { process.stdout.write(typeof v === "string" ? v : JSON.stringify(v)); process.exit(0); };
+// One answer per call; written with a callback, so a large answer is flushed before the process ends.
 const findIn = (lists, n) => lists.flat().find((x) => x.number === n);
 
-const [a, b] = args;
-if (a === "api" && b === "user") out(`${ME}\n`);
-if (a === "api" && args.some((x) => /\/milestones/.test(x))) out(MILESTONES);
-if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=4b825dc/.test(x))) out({ workflow_runs: [{ id: 9129, name: "CI", status: "action_required", conclusion: null }] });
-if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=/.test(x))) out({ workflow_runs: [] });
-if (a === "api" && args.some((x) => /^(repos\/[^/]+\/[^/]+|orgs\/[^/]+)\/actions\/runners/.test(x))) out({ total_count: 0, runners: [] });
-if (a === "api" && args.includes("POST")) out("");
-if (a === "api" && args.some((x) => /\/timeline/.test(x))) { const n = Number(/issues\/(\d+)\/timeline/.exec(args.find((x) => /timeline/.test(x)))[1]); out([TIMELINE[n] ?? []]); }
-if (a === "repo" && b === "view") out({ defaultBranchRef: { name: "main" }, squashMergeAllowed: true, mergeCommitAllowed: true, rebaseMergeAllowed: false, deleteBranchOnMerge: true,
-  stargazerCount: 128, forkCount: 14, watchers: { totalCount: 9 }, issues: { totalCount: ISSUES_OPEN.length }, pullRequests: { totalCount: PRS_OPEN.length },
-  latestRelease: { tagName: "v0.9.2", name: "0.9.2" } });
-if (a === "issue" && b === "list") out(val("--state") === "closed" ? ISSUES_CLOSED : ISSUES_OPEN);
-if (a === "pr" && b === "list") out({ open: PRS_OPEN, merged: PRS_MERGED, closed: PRS_CLOSED }[val("--state")] ?? []);
-if (a === "issue" && b === "view") out(findIn([ISSUES_OPEN, ISSUES_CLOSED], Number(args[2])) ?? {});
-if (a === "pr" && b === "view") out(findIn([PRS_OPEN, PRS_MERGED, PRS_CLOSED], Number(args[2])) ?? {});
-if (a === "run" && b === "list") out(RUNS);
-if (a === "run" && b === "view" && has("--log-failed")) out(FAILED_LOG);
-if (a === "run" && b === "view" && has("--job")) out(JOB_LOG);
-if (a === "run" && b === "view") { const r = RUNS.find((x) => String(x.databaseId) === args[2]) ?? RUNS[0]; out({ ...r, jobs: JOBS[r.databaseId] ?? [] }); }
-if (["merge", "comment", "close", "reopen", "edit", "rerun", "cancel"].includes(b)) out("ok\n");
-process.stderr.write(`demo gh: no answer for: gh ${args.join(" ")}\n`);
-process.exit(1);
+function answer() {
+  const [a, b] = args;
+  if (a === "api" && b === "user") return (`${ME}\n`);
+  if (a === "api" && args.some((x) => /\/milestones/.test(x))) return (MILESTONES);
+  if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=4b825dc/.test(x))) return ({ workflow_runs: [{ id: 9129, name: "CI", status: "action_required", conclusion: null }] });
+  if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=/.test(x))) return ({ workflow_runs: [] });
+  if (a === "api" && args.some((x) => /^(repos\/[^/]+\/[^/]+|orgs\/[^/]+)\/actions\/runners/.test(x))) return ({ total_count: 0, runners: [] });
+  if (a === "api" && args.includes("POST")) return ("");
+  if (a === "api" && args.some((x) => /\/timeline/.test(x))) { const n = Number(/issues\/(\d+)\/timeline/.exec(args.find((x) => /timeline/.test(x)))[1]); return ([TIMELINE[n] ?? []]); }
+  if (a === "repo" && b === "view") return ({ defaultBranchRef: { name: "main" }, squashMergeAllowed: true, mergeCommitAllowed: true, rebaseMergeAllowed: false, deleteBranchOnMerge: true,
+    stargazerCount: 128, forkCount: 14, watchers: { totalCount: 9 }, issues: { totalCount: ISSUES_OPEN.length }, pullRequests: { totalCount: PRS_OPEN.length },
+    latestRelease: { tagName: "v0.9.2", name: "0.9.2" } });
+  if (a === "issue" && b === "list") return (val("--state") === "closed" ? ISSUES_CLOSED : ISSUES_OPEN);
+  if (a === "pr" && b === "list") return ({ open: PRS_OPEN, merged: PRS_MERGED, closed: PRS_CLOSED }[val("--state")] ?? []);
+  if (a === "issue" && b === "view") return (findIn([ISSUES_OPEN, ISSUES_CLOSED], Number(args[2])) ?? {});
+  if (a === "pr" && b === "view") return (findIn([PRS_OPEN, PRS_MERGED, PRS_CLOSED], Number(args[2])) ?? {});
+  if (a === "run" && b === "list") return (RUNS);
+  if (a === "run" && b === "view" && has("--log-failed")) return (FAILED_LOG);
+  if (a === "run" && b === "view" && has("--job")) return (JOB_LOG);
+  if (a === "run" && b === "view") { const r = RUNS.find((x) => String(x.databaseId) === args[2]) ?? RUNS[0]; return ({ ...r, jobs: JOBS[r.databaseId] ?? [] }); }
+  if (["merge", "comment", "close", "reopen", "edit", "rerun", "cancel"].includes(b)) return ("ok\n");
+  return undefined;
+}
+
+const got = answer();
+if (got === undefined) { process.stderr.write(`demo gh: no answer for: gh ${args.join(" ")}\n`); process.exitCode = 1; }
+else process.stdout.write(typeof got === "string" ? got : JSON.stringify(got));
