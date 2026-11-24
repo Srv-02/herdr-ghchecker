@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Hero card</title>
+<link rel="stylesheet" href="card.css">
+<style>
+/* layout: the README hero. Left: name, tagline and the key features as text (keep them in line with the README intro).
+   Right: the panel with the Issues tab grouped by milestone. */
+html, body { width: 1022px; height: 572px; }
+.copy { position: absolute; left: 44px; top: 56px; width: 420px; color: #e6eaf0; font-family: -apple-system, "SF Pro Text", "Inter", system-ui, sans-serif; }
+.badge { display: inline-block; font-size: 13px; color: #aab4c0; border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; padding: 4px 12px; }
+h1 { font-size: 40px; line-height: 1.1; font-weight: 700; margin: 22px 0 8px; letter-spacing: -0.01em; }
+.tag { font-size: 17px; line-height: 1.45; color: #9aa5b2; margin-bottom: 26px; }
+ul { list-style: none; display: grid; gap: 10px; }
+li { font-size: 16px; line-height: 1.35; display: flex; align-items: center; gap: 12px; }
+/* the mod's own Lucide icons (mods/ghchecker/icons/), inline so headless Edge draws them */
+li svg { flex: none; width: 18px; height: 18px; padding: 6px; box-sizing: content-box; border-radius: 8px; background: rgba(90, 169, 245, 0.12); border: 1px solid rgba(90, 169, 245, 0.22);
+  fill: none; stroke: #7cc0ff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.panel { left: 520px; top: 30px; width: 446px; height: 512px; }
+.shot.cut.panel { border-color: #363a3f; }
+</style></head>
+<body><div class="frame">
+  <div class="copy">
+    <span class="badge">Herdr mod · GitHub CLI</span>
+    <h1>GitHub Checker</h1>
+    <div class="tag">Issues, pull requests and Actions of the repository in your focused tab.</div>
+    <ul>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>Follows your tab, shows the cache at once</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>Issues, grouped by milestone if you like</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/></svg>Pull requests with checks, reviews and a merge box</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z"/></svg>Runs, jobs and logs, re-run or cancel</li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>Stars, forks and the latest release at a glance</li>
+    </ul>
+  </div>
+  <div class="shot cut panel"><img src="hero-panel.png" alt=""></div>
+</div></body></html>

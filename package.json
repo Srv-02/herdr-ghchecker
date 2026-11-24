@@ -1,0 +1,11 @@
+{
+  "name": "ghchecker",
+  "description": "GitHub Checker: issues, pull requests and Actions of the focused tab's repository, as a Herdr panel.",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --import ./test/no-network.js --test \"test/*.test.js\"",
+    "lint": "node scripts/lint.mjs"
+  }
+}

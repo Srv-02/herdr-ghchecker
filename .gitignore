@@ -1,0 +1,7 @@
+tmp/
+build/
+node_modules/
+.superpowers/
+gpui-kit.d.ts
+jsconfig.json
+.DS_Store
