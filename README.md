@@ -50,6 +50,7 @@ Then click `GitHub` in the tab bar.
 ### Pull request overlay
 
 - **Conversation** with pictures and events, **Checks** and **Files** in their own sections; comment, close or reopen.
+- **Approve and run** for workflow runs of first-time contributors and forks, with a second click to confirm.
 - **Merge box:** conflicts, checks and review in one place, only the merge methods the repository allows, Delete branch, and a second click to confirm. Locked for drafts, conflicts and failed checks.
 
 ![A pull request with its merge box](screenshots/pr-overlay.png)

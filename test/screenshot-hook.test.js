@@ -58,7 +58,8 @@ test("the fake gh answers every call the panel makes", () => {
   assert.equal(gh("api", "user", "--jq", ".login").stdout.trim(), "mona");
   for (const args of [["issue", "list", "-R", "acme/acme-app", "--state", "open"], ["pr", "list", "-R", "acme/acme-app", "--state", "merged"], ["run", "list", "-R", "acme/acme-app"],
     ["api", "repos/acme/acme-app/milestones?state=all&per_page=100"], ["repo", "view", "acme/acme-app"], ["pr", "view", "47"], ["issue", "view", "46"], ["run", "view", "9127", "--json", "jobs"],
-    ["api", "--paginate", "--slurp", "repos/acme/acme-app/issues/47/timeline?per_page=100"]]) {
+    ["api", "--paginate", "--slurp", "repos/acme/acme-app/issues/47/timeline?per_page=100"],
+    ["api", "repos/acme/acme-app/actions/runs?head_sha=4b825dc642cb6eb9a060e54bf8d69288fbee4904&status=action_required&per_page=50"]]) {
     const r = gh(...args);
     assert.equal(r.status, 0, args.join(" "));
     assert.doesNotThrow(() => JSON.parse(r.stdout), args.join(" "));

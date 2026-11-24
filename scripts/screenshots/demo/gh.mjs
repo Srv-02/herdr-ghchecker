@@ -49,6 +49,7 @@ const pr = (number, title, author, minutes, head, extra = {}) => ({
 });
 const PRS_OPEN = [
   pr(47, "docs: fix the install path in the README", "octocat", 20, "patch-1", {
+    headRefOid: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
     reviewDecision: "REVIEW_REQUIRED", reviewRequests: [person(ME)], statusCheckRollup: [check("lint", "CI", "QUEUED", "", 19), check("test", "CI", "QUEUED", "", 19)],
     additions: 2, deletions: 2, files: [{ path: "README.md", additions: 2, deletions: 2 }], labels: [DOCS],
     body: "The README says to copy the app to `~/acme`, but the installer uses `~/.acme`. Fixed both places.",
@@ -128,6 +129,9 @@ const findIn = (lists, n) => lists.flat().find((x) => x.number === n);
 const [a, b] = args;
 if (a === "api" && b === "user") out(`${ME}\n`);
 if (a === "api" && args.some((x) => /\/milestones/.test(x))) out(MILESTONES);
+if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=4b825dc/.test(x))) out({ workflow_runs: [{ id: 9129, name: "CI", status: "action_required", conclusion: null }] });
+if (a === "api" && args.some((x) => /\/actions\/runs\?head_sha=/.test(x))) out({ workflow_runs: [] });
+if (a === "api" && args.includes("POST")) out("");
 if (a === "api" && args.some((x) => /\/timeline/.test(x))) { const n = Number(/issues\/(\d+)\/timeline/.exec(args.find((x) => /timeline/.test(x)))[1]); out([TIMELINE[n] ?? []]); }
 if (a === "repo" && b === "view") out({ defaultBranchRef: { name: "main" }, squashMergeAllowed: true, mergeCommitAllowed: true, rebaseMergeAllowed: false, deleteBranchOnMerge: true,
   stargazerCount: 128, forkCount: 14, watchers: { totalCount: 9 }, issues: { totalCount: ISSUES_OPEN.length }, pullRequests: { totalCount: PRS_OPEN.length },

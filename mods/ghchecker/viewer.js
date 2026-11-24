@@ -13,11 +13,12 @@ import { entries, tally, loginOf } from "./lib/timeline.js";
 import { split, linkRefs } from "./lib/markdown.js";
 import { hostOf } from "./lib/images.js";
 import { mergeMethods, preferredMethod, mergeBlocked, canDeleteBranch, mergeArgs } from "./lib/merge.js";
+import { awaitingPath, awaitingRuns, approveArgs } from "./lib/approve.js";
 import { ago, duration } from "./lib/time.js";
 
 const FIELDS = {
   issue: "number,title,body,author,state,stateReason,labels,assignees,createdAt,updatedAt,comments,url,milestone,closedByPullRequestsReferences,reactionGroups",
-  pr: "number,title,body,author,state,isDraft,labels,assignees,createdAt,updatedAt,comments,url,milestone,reactionGroups,headRefName,baseRefName,headRepositoryOwner,isCrossRepository,additions,deletions,changedFiles,files,commits,reviewDecision,statusCheckRollup,mergeable,reviewRequests,reviews,closingIssuesReferences,mergedAt",
+  pr: "number,title,body,author,state,isDraft,headRefOid,labels,assignees,createdAt,updatedAt,comments,url,milestone,reactionGroups,headRefName,baseRefName,headRepositoryOwner,isCrossRepository,additions,deletions,changedFiles,files,commits,reviewDecision,statusCheckRollup,mergeable,reviewRequests,reviews,closingIssuesReferences,mergedAt",
 };
 const INFO = "squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed,deleteBranchOnMerge";
 const LINK = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/(issues|pull)\/(\d+)(?:[/?#].*)?$/;
@@ -64,6 +65,10 @@ export class Viewer {
         if (kind === "issue" && item.url.includes("/pull/")) { this.kind = "pr"; return this.load(cx); } // #12 can be a pull request
         Object.assign(item, { repo: this.repo }, kind === "pr" ? { checks: checksOf(item) } : {});
         this.items[key] = item;
+        // Runs of an open pull request that wait for approval (Approve and run).
+        if (kind === "pr" && upper(item.state) === "OPEN" && item.headRefOid) {
+          item.awaiting = awaitingRuns(await ghJson(["api", awaitingPath(this.repo, item.headRefOid)]).catch(() => null));
+        }
         if (pages) this.threads[key] = entries(pages.flat());
         if (still()) this.item = item;
       } catch (e) { if (still()) this.error = String(e?.message ?? e); }
@@ -135,6 +140,22 @@ export class Viewer {
     keepMethod(method);
     this.act("Merging", mergeArgs(this.number, this.repo, method, this.deleteBranch && canDeleteBranch(this.item)), cx,
       () => notify({ title: "Pull request merged", body: `${this.repo}#${this.number}`, level: "success", timeout: 3000 }));
+  }
+
+  // Approve and run: a first click asks (the pull request's code runs on the repository's runners), the second
+  // approves every waiting run.
+  approve(cx) {
+    if (!this.approving) { this.approving = true; cx.notify(); return; }
+    this.approving = false;
+    const runs = this.item?.awaiting ?? [], repo = this.repo, key = this.key();
+    if (this.busy || !runs.length) return;
+    this.busy = "Approving"; this.error = null;
+    cx.spawn(async (cx) => {
+      try { for (const r of runs) await gh(approveArgs(repo, r.id)); notify({ title: "Runs approved", body: `${runs.length} workflow run${runs.length === 1 ? "" : "s"} of #${this.number}`, level: "success", timeout: 3000 }); }
+      catch (e) { this.error = String(e?.message ?? e); }
+      finally { this.busy = null; setShared("ghchecker.changed", { repo, at: Date.now() }); if (this.key() === key) this.load(cx); cx.notify(); }
+    });
+    cx.notify();
   }
 
   copy(cx, text, what) {
@@ -328,8 +349,9 @@ export class Viewer {
     const line = (color, text) => h_flex().gap(8).items_center().text_color(color).child(div().size(7).flex_none().rounded(4).bg(color)).child(text);
     const lines = v_flex().gap(6).px(12).py(10).text_size(12).border_b(1).border_color(t.border)
       .child(!known ? line(t.muted, "Checking for conflicts…") : conflict ? line(c.failure, `Conflicts with ${i.baseRefName}`) : line(c.success, `No conflicts with ${i.baseRefName}`))
-      .child(checks.state === "failure" ? line(c.failure, `${checks.failed.length} check${checks.failed.length === 1 ? "" : "s"} failed`)
-        : checks.state === "pending" ? line(c.running, "Checks running or waiting") : checks.state === "success" ? line(c.success, "All checks passed") : line(t.muted, "No checks"))
+      .when((i.awaiting ?? []).length > 0, (e) => e.child(line(c.running, "Checks awaiting approval")))
+      .when(!(checks.state === "pending" && (i.awaiting ?? []).length), (e) => e.child(checks.state === "failure" ? line(c.failure, `${checks.failed.length} check${checks.failed.length === 1 ? "" : "s"} failed`)
+        : checks.state === "pending" ? line(c.running, "Checks running or waiting") : checks.state === "success" ? line(c.success, "All checks passed") : line(t.muted, "No checks")))
       .child(line(c[review.tone], review.label === "No review" ? "No review required" : review.label))
       .when(Boolean(i.isDraft), (e) => e.child(line(t.muted, "Still a draft")));
     const bar = h_flex().gap(10).flex_wrap().items_center().px(12).py(10).bg(t.raised).text_size(12);
@@ -354,6 +376,19 @@ export class Viewer {
       .child(button("merge", label, t, (_e, cx) => this.merge(cx), { tone: c.success, enabled: !blocked && !busy, icon: "pr-merged", tooltip: fork ? "The branch lives in a fork: it stays" : null })));
   }
 
+  // The Checks part of a pull request whose runs wait for approval.
+  approval(i, t) {
+    const c = tones(t), n = i.awaiting.length, who = i.headRepositoryOwner?.login ?? i.author?.login ?? "the author", busy = Boolean(this.busy);
+    return v_flex().gap(8)
+      .child(h_flex().gap(6).items_center().text_color(c.running).child(div().size(7).rounded(4).bg(c.running)).child(`${n} run${n === 1 ? "" : "s"} awaiting approval`))
+      .when(!this.approving, (e) => e.child(h_flex().child(button("approve", "Approve and run", t, (_e, cx) => this.approve(cx), { small: true, enabled: !busy }))))
+      .when(Boolean(this.approving), (e) => e
+        .child(div().text_color(t.foreground).child(`Runs code from ${who} on this repository's runners. Read the changes first.`))
+        .child(h_flex().gap(6)
+          .child(button("approve-cancel", "Cancel", t, (_e, cx) => { this.approving = false; cx.notify(); }, { small: true }))
+          .child(button("approve-confirm", "Approve and run", t, (_e, cx) => this.approve(cx), { small: true, tone: c.running, enabled: !busy }))));
+  }
+
   // ---- the right column ----
   aside(i, t, cx) {
     const c = tones(t), pr = this.pr(), quiet = (text, color = null) => div().text_color(color ?? t.muted).child(text);
@@ -366,7 +401,7 @@ export class Viewer {
     const linked = pr ? i.closingIssuesReferences ?? [] : i.closedByPullRequestsReferences ?? [];
     return v_flex().id("aside").w(250).flex_none().min_h(0).overflow_y_scrollbar().border_l(1).border_color(t.border).px(16).py(18).gap(18).text_size(12)
       .when(pr, (e) => e
-        .child(part("Checks", checkLine))
+        .child(part("Checks", (i.awaiting ?? []).length ? this.approval(i, t) : checkLine))
         .child(part("Review", quiet(review.label, c[review.tone]))))
       .child(part("Assignees", (i.assignees ?? []).length ? v_flex().gap(6).children(i.assignees.map((a) => h_flex().gap(8).items_center()
         .child(this.face(a.login, null, 18, t, cx)).child(div().truncate().child(display(a.login))))) : quiet("No one")))
