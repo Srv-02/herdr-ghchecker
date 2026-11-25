@@ -74,9 +74,9 @@ Then click `GitHub` in the tab bar.
 - While the panel is shown: a full sync every 60 seconds; every 12 seconds the runs alone while a run is queued or in progress (the yellow dot on Actions). Nothing runs while the panel is hidden or the window is not visible.
 - The refresh button in the header syncs at once. A failed sync keeps the last lists and turns the refresh icon red (the error is in its tooltip).
 - Lists: up to 200 issues and 100 pull requests per state, the 40 latest runs. Only the rows on screen are drawn, so long lists scroll smoothly.
-- **Search and sort:** the funnel in the header shows or hides the text filter and the sort menu (on Actions: the workflow menu). State, All / Mine / … and Milestones stay visible. A dot on the funnel says the hidden search, sort or workflow is set.
+- **Search and sort:** the funnel at the right of the header shows or hides the text filter and the sort menu of Issues and PRs. State, All / Mine / … and Milestones stay visible; on Actions the funnel is dimmed (the workflow menu is always there). A dot on the funnel says the hidden search or sort is set.
 - **The refresh icon** turns while a sync runs and turns red with a dot when the last sync failed (offline, signed out); its tooltip says why and when the panel was last updated.
-- **Compact view:** the list button left of refresh switches between two lines per row (title, then number, age, author, labels) and one line (number and title). Long titles are cut at the end of the line; the overlay shows them in full.
+- **Compact view:** the list button between refresh and the funnel switches between two lines per row (title, then number, age, author, labels) and one line (number and title). Long titles are cut at the end of the line; the overlay shows them in full.
 - A click into the panel (or into another panel) keeps the repository of the last focused terminal.
 
 ### Status bar

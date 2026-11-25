@@ -53,10 +53,10 @@ export const DEFAULTS = {
   actions: { show: "all", workflow: null },
 };
 
-// The filter button hides the text filter and the sort menu (on Actions: the workflow menu). While they are
-// hidden, it is marked when one of them is set, so nothing filters unnoticed.
+// The filter button hides the text filter and the sort menu of Issues and PRs (Actions has neither). While they
+// are hidden, it is marked when one of them is set, so nothing filters unnoticed.
 export function hiddenFiltersSet(tab, f = {}, query = "") {
-  if (tab === "actions") return Boolean(f.workflow);
+  if (tab !== "issues" && tab !== "prs") return false;
   const base = DEFAULTS[tab];
   return Boolean(base) && (Boolean(String(query ?? "").trim()) || (f.sort ?? base.sort) !== base.sort);
 }

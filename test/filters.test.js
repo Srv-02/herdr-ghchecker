@@ -64,6 +64,6 @@ test("hiddenFiltersSet: the hidden search, sort or workflow menu is set", () => 
   assert.equal(hiddenFiltersSet("prs", { ...DEFAULTS.prs, sort: "newest" }), true);
   assert.equal(hiddenFiltersSet("prs", { ...DEFAULTS.prs, who: "review" }), false);
   assert.equal(hiddenFiltersSet("actions", { show: "failed", workflow: null }), false);
-  assert.equal(hiddenFiltersSet("actions", { show: "all", workflow: "CI" }), true);
+  assert.equal(hiddenFiltersSet("actions", { show: "all", workflow: "CI" }), false, "the workflow menu is always shown");
   assert.equal(hiddenFiltersSet("unknown", {}, "x"), false);
 });
