@@ -278,20 +278,19 @@ export default class GhChecker extends View {
           e?.syncing ? "Syncing…" : failed ? `Sync failed: ${e.error}. Click to try again.` : e?.at ? `Refresh · updated ${ago(new Date(e.at).toISOString())}` : "Refresh",
           (cx) => this.sync(cx), t, c, { spin: Boolean(e?.syncing), alarm: failed }))
         .child(this.headButton("compact", "list", this.compact, false, this.compact ? "Two lines per row" : "One line per row", (cx) => this.setCompact(!this.compact, cx), t, c))
-        // Actions has no search or sort: the button is dimmed there.
-        .child(this.headButton("filter", "filter", this.filtering && this.tab !== "actions", hiddenFiltersSet(this.tab, this.f[this.tab], this.query[this.tab]) && !this.filtering,
-          this.tab === "actions" ? "No search on Actions" : this.filtering ? "Hide search and sort" : "Search and sort",
-          (cx) => this.setFiltering(!this.filtering, cx), t, c, { enabled: this.tab !== "actions" })));
+        // The same on every tab; Actions has no search or sort, so there it changes nothing.
+        .child(this.headButton("filter", "filter", this.filtering, hiddenFiltersSet(this.tab, this.f[this.tab], this.query[this.tab]) && !this.filtering,
+          this.filtering ? "Hide search and sort" : "Search and sort", (cx) => this.setFiltering(!this.filtering, cx), t, c)));
   }
 
   // A header button as Filer Pro's: a 14 px icon in a 24 px hit area; on: the selected background. `marked`: a grey
-  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red; not `enabled`: dimmed, no click.
-  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false, enabled = true } = {}) {
-    const icon = glyph(name, 14, alarm ? c.failure : !enabled ? t.dim : on ? t.foreground : t.muted);
+  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red.
+  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false } = {}) {
+    const icon = glyph(name, 14, alarm ? c.failure : on ? t.foreground : t.muted);
     return div().id(id).relative().w(24).h(24).flex_none().flex().items_center().justify_center().rounded(6)
       .when(on, (e) => e.bg(t.selected)).tooltip(tip)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .when(enabled, (e) => e.cursor_pointer().hover((s) => s.bg(on ? t.selected : t.hover)).on_click((_e, cx) => onClick(cx)))
+      .cursor_pointer().hover((s) => s.bg(on ? t.selected : t.hover)).on_click((_e, cx) => onClick(cx))
       .child(spin ? icon.spin(900) : icon)
       .when(marked || alarm, (e) => e.child(div().absolute().top(3).right(3).size(5).rounded(3).bg(alarm ? c.failure : t.muted)));
   }
