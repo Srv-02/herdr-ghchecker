@@ -42,7 +42,7 @@ Without a GitHub repository: the header with the folder, then `No repository in 
 
 ## Built from
 
-Folder `mods/ghchecker/`, `mod.json` `{ "place": "none", "version": "1.0.1" }`.
+Folder `mods/ghchecker/`, `mod.json` `{ "place": "none", "version": "1.0.2" }`.
 
 - **One `View`, roles by props**: none: the panel; `{ button: true }`: the pill (adds `ghchecker` to shared `workspace.panels`); `{ item }`, `{ run }`, `{ settings: true }`, `{ menu }`: the overlays.
 - **Layout blocks**: in a row `tab-bar` (42px) `{ "id": "ghchecker-button", "type": "block", "content": { "mod": "ghchecker", "props": { "button": true } }, "size": { "px": 92 }, "window_drag": true }`; in `panel` > `panel-body` `{ "id": "ghchecker", "type": "block", "content": { "mod": "ghchecker" }, "size": { "weight": 1 }, "min": 120 }`. The pill finds the panel by its mod.
@@ -54,7 +54,7 @@ Folder `mods/ghchecker/`, `mod.json` `{ "place": "none", "version": "1.0.1" }`.
 ## Watch out
 
 - The folder name is load-bearing: icons are `mods/ghchecker/icons/<name>.svg`, the version is read from `mods/ghchecker/mod.json`, overlays open `mod: "ghchecker"`, shared keys are `ghchecker.*`.
-- A virtual list's rows take no handlers: clicks come by key through `on_item_click`; hover is a style. Each row gets its key as `.id()`: GPUI repaints a hover change only for an element with an identity, so a row without one shows its hover late.
+- A virtual list's rows take no handlers: clicks come by key through `on_item_click`; hover is a style. Each row gets its key as `.id()`: GPUI repaints a hover change only for an element with an identity, so a row without one shows its hover late. The same holds for every element with `.hover()`: each has an `.id()` (`npm run lint` checks it).
 - Herdr draws nothing new in a minimized or fully covered window; the timers skip their work then.
 - `exec` stops after 30 s by default; gh calls get 60 s.
 - Never interpolate into shell text: repository names pass `slugOf` (`[\w.-]` only) before they reach `gh` arguments or API paths; URLs go to curl as `"$2"`.

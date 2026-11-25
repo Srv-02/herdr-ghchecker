@@ -268,7 +268,7 @@ export class Viewer {
       .when(Boolean(target), (x) => x.child(h_flex().id(key).ml(42).gap(8).items_center().cursor_pointer().text_size(12)
         .on_click((_ev, cx) => this.follow(target.url, cx))
         .when(Boolean(e.mention), (y) => y.child(glyph(e.mention.pr ? (e.mention.merged ? "pr-merged" : "pr-open") : "issue-open", 15, e.mention.open ? c.open : c.done))
-          .child(div().font_semibold().text_color(t.foreground).hover((s) => s.text_color(c.link)).child(e.mention.title ?? ""))
+          .child(div().id(`${key}-title`).font_semibold().text_color(t.foreground).hover((s) => s.text_color(c.link)).child(e.mention.title ?? ""))
           .child(div().text_color(t.muted).child(`${e.mention.repo === this.repo ? "" : e.mention.repo ?? ""}#${e.mention.number}`)))
         .when(Boolean(e.commit), (y) => y.when(Boolean(e.commit.message), (z) => z.child(div().flex_1().min_w(0).truncate().text_color(t.foreground).child(e.commit.message)))
           .child(div().px(6).py(1).rounded(5).bg(t.raised).border_1().border_color(t.border).font_family(MONO).text_color(t.muted).child(e.commit.sha)))));
@@ -418,7 +418,7 @@ export class Viewer {
       .child(part("Milestone", i.milestone?.title ? h_flex().gap(6).items_center().child(glyph("milestone", 13, t.muted)).child(i.milestone.title) : quiet("None")))
       .when(linked.length > 0, (e) => e.child(part(pr ? "Closes" : "Development", v_flex().gap(6).children(linked.map((x) => h_flex().id(`dev-${x.number}`).gap(6).items_center().cursor_pointer()
         .on_click((_e, cx) => this.follow(x.url, cx))
-        .child(glyph(pr ? "issue-open" : "pr-open", 13, c.open)).child(div().hover((s) => s.text_color(c.link)).child(`#${x.number}`)))))))
+        .child(glyph(pr ? "issue-open" : "pr-open", 13, c.open)).child(div().id(`dev-${x.number}-number`).hover((s) => s.text_color(c.link)).child(`#${x.number}`)))))))
       .child(part("Copy", h_flex().gap(6).flex_wrap()
         .child(button("copy-link", "Link", t, (_e, cx) => this.copy(cx, i.url, "Link"), { small: true }))
         .child(pr ? button("copy-checkout", "Checkout cmd", t, (_e, cx) => this.copy(cx, `gh pr checkout ${i.number} -R ${this.repo}`, "Command"), { small: true })

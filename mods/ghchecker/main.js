@@ -237,11 +237,11 @@ export default class GhChecker extends View {
   // ---- drawing: rows ----
   // Rows have a fixed height (one line in compact view, two otherwise) so the list can be virtual: only what is
   // on screen is drawn, which keeps scrolling smooth with hundreds of issues. A virtual list's rows take no
-  // handlers; the list reports clicks by key (list() below). list() also gives each row its key as id: GPUI repaints
-  // a hover change only for an element with an identity, so without it the hover background waited for the next
-  // unrelated repaint.
-  row(size, t) {
-    return h_flex().h(size).w_full().flex_none().px(8).gap(9).items_center().rounded(7).cursor_pointer().overflow_hidden().hover((s) => s.bg(t.hover));
+  // handlers; the list reports clicks by key (list() below). Each row carries its key as id: GPUI repaints a hover
+  // change only for an element with an identity, so without it the hover background waited for the next unrelated
+  // repaint (scripts/hoverids.mjs checks every .hover() for an id).
+  row(key, size, t) {
+    return h_flex().id(key).h(size).w_full().flex_none().px(8).gap(9).items_center().rounded(7).cursor_pointer().overflow_hidden().hover((s) => s.bg(t.hover));
   }
   // Title line and meta line of a two-line row; the meta line never wraps.
   lines(title, meta, chips, t, extra = null) {
@@ -255,41 +255,41 @@ export default class GhChecker extends View {
     return v_flex().flex_none().items_end().gap(3).text_size(11).text_color(t.muted).child(top).when(Boolean(bottom), (e) => e.child(bottom));
   }
 
-  issueRow(i, t, c, size) {
+  issueRow(i, t, c, size, key) {
     const s = issueState(i), comments = i.commentCount > 0
       ? h_flex().gap(3).items_center().child(glyph("comment", 12, t.muted)).child(String(i.commentCount)) : div();
-    if (this.compact) return this.row(size, t).child(glyph(s.icon, 14, c[s.tone]))
+    if (this.compact) return this.row(key, size, t).child(glyph(s.icon, 14, c[s.tone]))
       .child(div().w(42).flex_none().text_size(11).text_color(t.muted).child(`#${i.number}`))
       .child(div().flex_1().min_w(0).truncate().child(i.title))
       .child(div().flex_none().text_size(11).text_color(t.muted).child(comments));
-    return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
+    return this.row(key, size, t).child(glyph(s.icon, 15, c[s.tone]))
       .child(this.lines(i.title, `#${i.number} · ${ago(i.createdAt)} by ${who(i.author)}`, visibleLabels(i.labels, this.settings, 3).map((l) => labelChip(l, t, labelHex(l, this.settings))), t))
       .child(this.side(t, comments));
   }
 
-  prRow(p, t, c, size) {
+  prRow(p, t, c, size, key) {
     const s = prState(p), checks = checksSummary(p), review = reviewOf(p), open = String(p.state).toUpperCase() === "OPEN";
     const head = p.isCrossRepository && p.headRepositoryOwner?.login ? `${p.headRepositoryOwner.login}:${p.headRefName}` : p.headRefName;
     const dot = h_flex().gap(4).items_center().text_color(c[checks.tone]).child(div().size(7).rounded(4).bg(c[checks.tone])).child(checks.label);
-    if (this.compact) return this.row(size, t).child(glyph(s.icon, 14, c[s.tone]))
+    if (this.compact) return this.row(key, size, t).child(glyph(s.icon, 14, c[s.tone]))
       .child(div().w(42).flex_none().text_size(11).text_color(t.muted).child(`#${p.number}`))
       .child(div().flex_1().min_w(0).truncate().child(p.title))
       .child(div().flex_none().text_size(11).child(dot));
     const chips = [...(p.isDraft ? [chip("draft", t.muted)] : []), ...visibleLabels(p.labels, this.settings, 2).map((l) => labelChip(l, t, labelHex(l, this.settings)))];
-    return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
+    return this.row(key, size, t).child(glyph(s.icon, 15, c[s.tone]))
       .child(this.lines(p.title, `#${p.number} · ${ago(p.updatedAt)} by ${who(p.author)}`, chips, t, `${head} → ${p.baseRefName}`))
       .child(this.side(t, dot, open ? div().text_color(c[review.tone]).child(review.label) : null));
   }
 
-  runRow(r, t, c, size) {
+  runRow(r, t, c, size, key) {
     const s = runState(r), done = !running(r);
     const took = done ? duration(r.startedAt ?? r.createdAt, r.updatedAt) : duration(r.startedAt ?? r.createdAt, null);
     const time = done ? `${took} · ${age(r.createdAt)}` : took;
-    if (this.compact) return this.row(size, t).child(glyphOf(s.icon, 14, c[s.tone]))
+    if (this.compact) return this.row(key, size, t).child(glyphOf(s.icon, 14, c[s.tone]))
       .child(div().flex_1().min_w(0).truncate().child(r.displayTitle))
       .child(div().flex_none().text_size(11).text_color(c[s.tone]).child(s.label))
       .child(div().flex_none().text_size(11).text_color(t.muted).child(time));
-    return this.row(size, t).child(glyphOf(s.icon, 15, c[s.tone]))
+    return this.row(key, size, t).child(glyphOf(s.icon, 15, c[s.tone]))
       .child(this.lines(r.displayTitle, `${r.workflowName} #${r.number} · ${r.event}`, [], t, r.headBranch ?? ""))
       .child(this.side(t, div().text_color(c[s.tone]).child(s.label), div().child(time)));
   }
@@ -417,15 +417,15 @@ export default class GhChecker extends View {
   // The status bar: the same on every tab. Open issues and pull requests jump to their tab, filtered to Open.
   statusBar(t) {
     const d = this.data(), { entries, release } = statsOf(d.stats, { issues: d["issues:open"], prs: d["prs:open"] });
-    const item = (id, name, tip, value) => h_flex().id(id).flex_none().gap(5).items_center().tooltip(tip).child(glyph(name, 13, t.muted)).child(String(value));
+    const item = (name, tip, value) => h_flex().flex_none().gap(5).items_center().tooltip(tip).child(glyph(name, 13, t.muted)).child(String(value));
     return h_flex().id("status-bar").h(30).flex_none().px(14).gap(12).items_center().border_t(1).border_color(t.border).bg(t.chrome ?? t.background)
       .text_size(11.5).text_color(t.muted)
-      .children(entries.map((e) => item(`stat-${e.key}`, e.icon, e.tip, e.value)
+      .children(entries.map((e) => item(e.icon, e.tip, e.value).id(`stat-${e.key}`)
         .when(Boolean(e.tab), (x) => x.cursor_pointer().hover((s) => s.text_color(t.foreground))
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .on_click((_e, cx) => { this.setFilter(e.tab, { state: "open" }, cx); this.setTab(e.tab, cx); }))))
       .child(div().flex_1())
-      .when(Boolean(release), (x) => x.child(item("stat-release", "tag", "Latest release", release)));
+      .when(Boolean(release), (x) => x.child(item("tag", "Latest release", release).id("stat-release")));
   }
 
   // ---- drawing: the list ----
@@ -433,16 +433,16 @@ export default class GhChecker extends View {
 
   // The rows as entries { key, size, draw, open }: what the virtual list places and what a click opens.
   entries(rows, t, c) {
-    const tab = this.tab, size = this.compact ? 28 : 46, entry = (key, draw, open) => ({ key, size, draw, open });
+    const tab = this.tab, size = this.compact ? 28 : 46, entry = (key, draw, open) => ({ key, size, draw: (sz) => draw(sz, key), open });
     if (tab === "issues" && this.f.issues.group) {
       return groupByMilestone(rows, this.data().milestones ?? []).flatMap((g) => [
         { key: `g:${g.key}`, size: g.progress ? 40 : 32, draw: (sz) => this.groupHeading(g, t, c, sz), open: null },
-        ...g.items.map((i) => entry(`i:${i.number}`, (sz) => this.issueRow(i, t, c, sz), () => this.openItem(i, "issue"))),
+        ...g.items.map((i) => entry(`i:${i.number}`, (sz, key) => this.issueRow(i, t, c, sz, key), () => this.openItem(i, "issue"))),
       ]);
     }
-    if (tab === "issues") return rows.map((i) => entry(`i:${i.number}`, (sz) => this.issueRow(i, t, c, sz), () => this.openItem(i, "issue")));
-    if (tab === "prs") return rows.map((p) => entry(`p:${p.number}`, (sz) => this.prRow(p, t, c, sz), () => this.openItem(p, "pr")));
-    return rows.map((r) => entry(`r:${r.databaseId}`, (sz) => this.runRow(r, t, c, sz), () => this.openRun(r)));
+    if (tab === "issues") return rows.map((i) => entry(`i:${i.number}`, (sz, key) => this.issueRow(i, t, c, sz, key), () => this.openItem(i, "issue")));
+    if (tab === "prs") return rows.map((p) => entry(`p:${p.number}`, (sz, key) => this.prRow(p, t, c, sz, key), () => this.openItem(p, "pr")));
+    return rows.map((r) => entry(`r:${r.databaseId}`, (sz, key) => this.runRow(r, t, c, sz, key), () => this.openRun(r)));
   }
 
   list(t, c) {
@@ -459,7 +459,7 @@ export default class GhChecker extends View {
     const id = `list-${tab}`;
     return box
       .child(v_virtual_list(id, items.length, items.map((x) => x.size), (n) => items[n].key,
-        (range) => items.slice(range.start, range.end).map((x) => x.draw(x.size).id(x.key)))
+        (range) => items.slice(range.start, range.end).map((x) => x.draw(x.size)))
         .size_full()
         .on_item_click((key) => byKey.get(key)?.open?.()))
       .child(Scrollbar.vertical(id).absolute().inset_0());

@@ -1,8 +1,10 @@
 // npm run lint: every script parses, the mod avoids what herdr's QuickJS lacks, and nothing in the mod is dead:
-// no unused import, no export no other file of the mod imports, no icon nobody draws and no drawn icon missing.
+// no unused import, no export no other file of the mod imports, no icon nobody draws and no drawn icon missing, and
+// no .hover() on an element without an .id().
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { hoverWithoutId } from "./hoverids.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const mod = path.join(root, "mods/ghchecker");
@@ -66,6 +68,11 @@ const quoted = new Set([...all.matchAll(/"([a-z][a-z-]*)"/g)].map((m) => m[1]));
 for (const name of icons) if (!quoted.has(name)) problems.push(`mods/ghchecker/icons/${name}.svg: never drawn`);
 for (const m of all.matchAll(/\b(?:glyph|glyphOf|icon)\(\s*"([a-z-]+)"/g)) if (!icons.has(m[1]) && m[1] !== "spin") problems.push(`icon ${m[1]}: no icons/${m[1]}.svg`);
 for (const m of all.matchAll(/\bicon:\s*"([a-z-]+)"/g)) if (!icons.has(m[1]) && m[1] !== "spin") problems.push(`icon ${m[1]}: no icons/${m[1]}.svg`);
+
+// Every .hover() has an .id() in its element chain (scripts/hoverids.mjs says why).
+for (const [f, src] of Object.entries(text)) {
+  for (const h of hoverWithoutId(src)) problems.push(`${rel(f)}:${h.line}: .hover() without .id() (${h.chain})`);
+}
 
 for (const p of problems) console.error(`FAIL ${p}`);
 console.log(`lint: ${js.length + shells.length} files parse, ${modFiles.length} mod files checked, ${problems.length} problem${problems.length === 1 ? "" : "s"}`);
