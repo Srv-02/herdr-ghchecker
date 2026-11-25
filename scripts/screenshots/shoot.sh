@@ -89,33 +89,32 @@ box() { sips -c "$5" "$4" --cropOffset "$2" "$3" "$RAW/$1.png" --out "$C/$6.png"
 card() { "$S/render.sh" "$C/$1.html" "$3" "${4:-880}" $(($2 - 28)) > /dev/null; }
 mkdir -p "$ROOT/screenshots"
 if want hero && [ -f "$RAW/hero.png" ]; then panel hero $H_HERO hero-panel; card hero $H_HERO "$ROOT/preview.png" 1022; fi
-# overlay <raw> <H> <out>: the main column of an issue or pull request overlay, top to bottom (title, state, conversation);
-# the right column is left out.
-overlay() { box "$1" $(($2 / 10 + 1)) 104 1010 $(($2 * 18 / 10 - 3)) "$3"; }
+# Panels and overlays are separate cards, each at its own size (2x): a panel never looks bigger than an overlay.
+# render <card> <width> <height>: cards/<card>.html into screenshots/<card>.png.
+render() { "$S/render.sh" "$C/$1.html" "$ROOT/screenshots/$1.png" "$2" "$3" > /dev/null; }
+# A list ends after its last whole row and joins the status bar (the card stacks both). sips ignores a crop offset of
+# 0, so a crop from the top starts at row 1.
 if want issues && [ -f "$RAW/issues.png" ]; then
-  # The list ends after its last whole row and joins the status bar (cards/issues.html stacks both); the overlay
-  # runs down to its comment box. sips ignores a crop offset of 0, so a crop from the top starts at row 1.
   panel issues $H_ISSUES issues-panel
   sips -c 963 888 --cropOffset 1 0 "$C/issues-panel.png" --out "$C/issues-panel-top.png" > /dev/null
   sips -c 58 888 --cropOffset 1119 0 "$C/issues-panel.png" --out "$C/issues-panel-foot.png" > /dev/null
-  box issue-overlay 91 105 1010 1439 issue-overlay
-  "$S/render.sh" "$C/issues.html" "$ROOT/screenshots/issues.png" 880 590 > /dev/null
+  render issues 488 571
+  # The whole issue overlay, down to its comment box.
+  box issue-overlay 91 105 1510 1444 issue-overlay; render issue-overlay 799 782
 fi
 if want prs && [ -f "$RAW/prs.png" ]; then
-  panel prs $H_PRS prs-panel; overlay pr-overlay $H_PR_OVERLAY pr-overlay
-  card prs $H_PRS "$ROOT/screenshots/prs.png"
+  panel prs $H_PRS prs-panel; render prs 488 662
+  box pr-overlay 86 105 1510 1520 pr-overlay; render pr-overlay 799 820
 fi
-# The run overlay: the steps and the log of the failed job, from below the overlay's title to its bottom.
 if want actions && [ -f "$RAW/actions.png" ]; then
-  # The list ends after its last whole row and joins the status bar (cards/actions.html stacks both).
   panel actions $H_ACTIONS actions-panel
   sips -c 965 888 --cropOffset 1 0 "$C/actions-panel.png" --out "$C/actions-panel-top.png" > /dev/null
   sips -c 60 888 --cropOffset 1047 0 "$C/actions-panel.png" --out "$C/actions-panel-foot.png" > /dev/null
-  box run-overlay 384 643 954 1086 run-overlay
-  "$S/render.sh" "$C/actions.html" "$ROOT/screenshots/actions.png" 880 573 > /dev/null
+  render actions 488 573
+  # The whole run overlay, down to the end of the log.
+  box run-overlay 118 122 1476 1357 run-overlay; render run-overlay 782 739
 fi
 if want settings && [ -f "$RAW/settings-panel.png" ]; then
-  panel settings-panel $H_SETTINGS settings-panel; box settings-dialog 96 242 1236 1688 settings-dialog
-  card settings $H_SETTINGS "$ROOT/screenshots/settings.png"
+  box settings-dialog 96 242 1236 1688 settings-dialog; render settings 662 904
 fi
 echo "rendered into screenshots/ and preview.png. Look at every image before you commit it: no user name, no real path, no real host."

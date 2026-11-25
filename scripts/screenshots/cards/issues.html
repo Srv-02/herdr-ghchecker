@@ -2,12 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><title>Issues card</title>
 <link rel="stylesheet" href="card.css">
 <style>
-/* layout: the whole panel (the Issues tab grouped by milestone) left; right, the first issue in its overlay: title, state and conversation (the overlay's right column left out), down to the end of its comment box. The panel list is cut after its last whole row and joined to the status bar (shoot.sh). The panel fills the card's height at its own size; the card is H - 28 tall (see shoot.sh). */
-html, body { width: 880px; height: 590px; }
-.panel { left: 22px; top: 30px; width: 444px; }
-.side { left: 486px; top: 30px; width: 372px; border-radius: 12px; }
+/* The panel alone: the Issues tab grouped by milestone; the list ends after its last whole row and joins the status bar. Shown at its own size (2x); rendered by shoot.sh at 488 x 571. */
+html, body { width: 488px; height: 571px; }
+.one { left: 22px; top: 30px; width: 444px; }
 </style></head>
 <body><div class="frame">
-  <div class="shot panel"><img src="issues-panel-top.png" alt=""><img src="issues-panel-foot.png" alt=""></div>
-  <div class="shot side"><img src="issue-overlay.png" alt=""></div>
+  <div class="shot one"><img src="issues-panel-top.png" alt=""><img src="issues-panel-foot.png" alt=""></div>
 </div></body></html>

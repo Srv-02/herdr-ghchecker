@@ -40,7 +40,9 @@ Then click `GitHub` in the tab bar.
 - **Milestones:** one switch groups the list by milestone, each with its due date and progress (`5 / 8 done`); issues without one come last.
 - **Filter** by title, number, author or label.
 
-![The Issues tab grouped by milestone, beside an issue in its overlay](screenshots/issues.png)
+<p><img src="screenshots/issues.png" width="488" alt="The Issues tab grouped by milestone"></p>
+
+<p><img src="screenshots/issue-overlay.png" width="799" alt="An issue in its overlay"></p>
 
 ### Pull requests
 
@@ -50,7 +52,9 @@ Then click `GitHub` in the tab bar.
 - **Approve and run** for workflow runs of first-time contributors and forks, with a second click to confirm.
 - **Merge box:** conflicts, checks and review in one place, only the merge methods the repository allows, Delete branch, and a second click to confirm. Locked for drafts, conflicts and failed checks.
 
-![The PRs tab with checks and reviews, beside a pull request with its merge box](screenshots/prs.png)
+<p><img src="screenshots/prs.png" width="488" alt="The PRs tab with checks and reviews"></p>
+
+<p><img src="screenshots/pr-overlay.png" width="799" alt="A pull request with its merge box"></p>
 
 ### Actions
 
@@ -58,14 +62,16 @@ Then click `GitHub` in the tab bar.
 - **The tab's dot:** yellow while a run is in progress, red when the latest run on the default branch failed.
 - **Run overlay:** jobs on the left, steps and the trimmed failure log on the right; **Re-run failed jobs**, **Re-run all**, or **Cancel run** while it runs.
 
-![The Actions tab, beside a failed run with its steps and log](screenshots/actions.png)
+<p><img src="screenshots/actions.png" width="488" alt="The Actions tab"></p>
+
+<p><img src="screenshots/run-overlay.png" width="782" alt="A failed run with its jobs, steps and log"></p>
 
 ### Settings
 
 - **The gear** opens the settings: compact rows, labels shown or hidden, in color or mono, and who counts as external.
 - **Updates:** once a day the panel asks GitHub for a new release. The gear turns gold when one is out, and the dialog tells you what to ask your agent.
 
-![Compact rows, beside the Settings dialog](screenshots/settings.png)
+<p><img src="screenshots/settings.png" width="662" alt="The Settings dialog"></p>
 
 ### And
 

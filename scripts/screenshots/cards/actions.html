@@ -2,12 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><title>Actions card</title>
 <link rel="stylesheet" href="card.css">
 <style>
-/* layout: the whole panel (the Actions tab) left; right, the latest failed run in its overlay: the steps of the failed job and the whole trimmed log. The panel list is cut after its last whole row and joined to the status bar (shoot.sh). The panel fills the card's height at its own size; the card is H - 28 tall (see shoot.sh). */
-html, body { width: 880px; height: 573px; }
-.panel { left: 22px; top: 30px; width: 444px; }
-.side { left: 486px; top: 30px; width: 372px; border-radius: 12px; }
+/* The panel alone: the Actions tab; the list ends after its last whole row and joins the status bar. Shown at its own size (2x); rendered by shoot.sh at 488 x 573. */
+html, body { width: 488px; height: 573px; }
+.one { left: 22px; top: 30px; width: 444px; }
 </style></head>
 <body><div class="frame">
-  <div class="shot panel"><img src="actions-panel-top.png" alt=""><img src="actions-panel-foot.png" alt=""></div>
-  <div class="shot side"><img src="run-overlay.png" alt=""></div>
+  <div class="shot one"><img src="actions-panel-top.png" alt=""><img src="actions-panel-foot.png" alt=""></div>
 </div></body></html>

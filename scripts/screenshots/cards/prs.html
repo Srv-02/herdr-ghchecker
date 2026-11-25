@@ -2,12 +2,10 @@
 <html lang="en"><head><meta charset="utf-8"><title>Pull requests card</title>
 <link rel="stylesheet" href="card.css">
 <style>
-/* layout: the whole panel (the PRs tab with checks and reviews) left; right, the first pull request in its overlay: title, state, conversation and the merge box (the right column left out). The panel fills the card's height at its own size; the card is H - 28 tall (see shoot.sh). */
-html, body { width: 880px; height: 621px; }
-.panel { left: 22px; top: 30px; width: 444px; }
-.side { left: 486px; top: 30px; width: 372px; border-radius: 12px; }
+/* The panel alone: the PRs tab with checks and reviews. Shown at its own size (2x); rendered by shoot.sh at 488 x 662. */
+html, body { width: 488px; height: 662px; }
+.one { left: 22px; top: 30px; width: 444px; }
 </style></head>
 <body><div class="frame">
-  <div class="shot panel"><img src="prs-panel.png" alt=""></div>
-  <div class="shot side"><img src="pr-overlay.png" alt=""></div>
+  <div class="shot one"><img src="prs-panel.png" alt=""></div>
 </div></body></html>
