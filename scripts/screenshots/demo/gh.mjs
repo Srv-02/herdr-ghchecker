@@ -13,7 +13,7 @@ const bot = (login) => ({ login: `app/${login}`, is_bot: true, name: "" });
 const label = (name, color) => ({ name, color, description: "" });
 const BUG = label("bug", "f28b82"), FEATURE = label("enhancement", "7ab6ff"), DOCS = label("documentation", "9fd9a0"), GOOD = label("good first issue", "c9a3ff");
 const V10 = { number: 1, title: "v1.0", description: "", dueOn: at(-60 * 24 * 17) }, V11 = { number: 2, title: "v1.1", description: "", dueOn: null };
-
+const V12 = { number: 3, title: "v1.2", description: "", dueOn: null };
 const issue = (number, title, author, minutes, labels, milestone, comments, body, extra = {}) => ({
   number, title, url: `https://github.com/${REPO}/issues/${number}`, state: "OPEN", stateReason: null, labels, assignees: author === ME ? [person(ME)] : [],
   author: person(author), createdAt: at(minutes), updatedAt: at(minutes / 2), milestone,
@@ -21,13 +21,30 @@ const issue = (number, title, author, minutes, labels, milestone, comments, body
   body, reactionGroups: [], closedByPullRequestsReferences: [], ...extra,
 });
 
+// Enough rows to fill the panel to its status bar, also with compact rows (one line each).
 const ISSUES_OPEN = [
   issue(46, "Checkout fails when the cart is empty", "octocat", 14, [BUG], V10, 1, "Steps:\n\n1. Open the shop with an empty cart\n2. Press **Checkout**\n\nThe page shows a blank screen instead of a hint."),
+  issue(45, "Shipping costs missing on the order summary", "hubot", 50, [BUG], V10, 0, "The summary shows the subtotal only."),
   issue(41, "Remember the last payment method", ME, 130, [FEATURE], V11, 3, "Returning customers pick the same method every time. Preselect it."),
   issue(38, "Prices round wrong for currencies with three decimals", "hubot", 60 * 26, [BUG, GOOD], V10, 2, "KWD and BHD prices lose their last digit in the cart."),
+  issue(37, "Wish list: share a link", "octocat", 60 * 30, [FEATURE], V11, 0, "Let customers send their wish list to a friend."),
   issue(35, "Order page: dark mode", ME, 60 * 24 * 3, [FEATURE], V11, 0, "The order page ignores the system appearance."),
+  issue(34, "Tax line shows twice for Austrian addresses", "octocat", 60 * 84, [BUG], V10, 1, "Both the net and the gross tax line show up."),
   issue(33, "Explain webhook retries in the docs", ME, 60 * 24 * 4, [DOCS], null, 0, "How often and how long do we retry a failed webhook?"),
+  issue(32, "Gift cards", "octocat", 60 * 108, [FEATURE], V12, 2, "Sell and redeem gift cards in the shop."),
+  issue(30, "Show delivery dates in the cart", "hubot", 60 * 24 * 5, [FEATURE], V11, 1, "An estimate per item, from the warehouse."),
   issue(29, "Flaky test in cart totals", ME, 60 * 24 * 6, [BUG], V10, 1, "`cart totals > applies coupons` fails about once in twenty runs."),
+  issue(28, "Document the refund flow", "octocat", 60 * 24 * 7, [DOCS], null, 0, "Who refunds, when, and what the customer sees."),
+  issue(26, "Product reviews with photos", "hubot", 60 * 24 * 8, [FEATURE], V12, 5, "Customers attach up to three photos to a review."),
+  issue(25, "Export orders as CSV", "octocat", 60 * 204, [FEATURE], V11, 4, "One row per order line, for the bookkeeping."),
+  issue(24, "Coupon expiry ignores the store's time zone", "octocat", 60 * 24 * 9, [BUG], V10, 3, "A coupon valid until midnight ends at 23:00 in Vienna."),
+  issue(23, "Typo in the privacy page", "hubot", 60 * 24 * 10, [DOCS, GOOD], null, 0, "\"recieve\" in the second paragraph."),
+  issue(21, "Payment page times out on slow networks", "hubot", 60 * 24 * 11, [BUG], V10, 2, "After 10 s the page gives up, even when the payment went through."),
+  issue(20, "Upgrade the test runner to Node 24", ME, 60 * 24 * 12, [], null, 1, "Node 22 leaves maintenance soon."),
+  issue(19, "Saved addresses for returning customers", ME, 60 * 24 * 13, [FEATURE], V11, 0, "Pick one of the last three addresses."),
+  issue(18, "Search suggestions while typing", "octocat", 60 * 24 * 14, [FEATURE], V12, 1, "Suggest products after three letters."),
+  issue(17, "API reference: add pagination examples", "octocat", 60 * 24 * 15, [DOCS], null, 0, "The list endpoints page but the docs don't say how."),
+  issue(15, "Stock alerts by email", ME, 60 * 24 * 16, [FEATURE], V12, 0, "Tell me when an item is back."),
 ];
 // GHC_DEMO_MANY=1 in the instance's environment adds 200 more issues, to try scrolling and long titles.
 if (process.env.GHC_DEMO_MANY) for (let n = 0; n < 200; n++) {
@@ -37,10 +54,11 @@ const ISSUES_CLOSED = [
   { ...issue(31, "Coupon field accepts spaces", "octocat", 60 * 24 * 9, [BUG], V10, 2, "Trim the code before checking it."), state: "CLOSED", stateReason: "COMPLETED" },
   { ...issue(27, "Add a sitemap", ME, 60 * 24 * 12, [FEATURE], null, 0, ""), state: "CLOSED", stateReason: "NOT_PLANNED" },
 ];
-const MILESTONES = [
-  { number: 1, title: "v1.0", state: "open", open_issues: 3, closed_issues: 5, due_on: V10.dueOn },
-  { number: 2, title: "v1.1", state: "open", open_issues: 2, closed_issues: 1, due_on: null },
-];
+// open_issues matches the open issues above, so the bars agree with the list.
+const MILESTONES = [V10, V11, V12].map((m) => {
+  const open = ISSUES_OPEN.filter((i) => i.milestone === m).length, closed = { 1: 5, 2: 2, 3: 0 }[m.number];
+  return { number: m.number, title: m.title, state: "open", open_issues: open, closed_issues: closed, due_on: m.dueOn };
+});
 
 const check = (name, workflowName, status, conclusion, minutes, took = 0) => ({ __typename: "CheckRun", name, workflowName, status, conclusion,
   detailsUrl: `https://github.com/${REPO}/actions`, startedAt: at(minutes), completedAt: status === "COMPLETED" ? at(minutes - took) : null });
@@ -76,6 +94,28 @@ const PRS_OPEN = [
     author: bot("dependabot"), headRepositoryOwner: { login: "acme" }, isCrossRepository: false,
     statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 4320, 0.3), check("test", "CI", "COMPLETED", "SUCCESS", 4320, 2)], body: "Bumps vite.",
   }),
+  pr(22, "feat: export orders as CSV", "hubot", 60 * 24 * 9, "csv-export", {
+    reviewDecision: "APPROVED", statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 12960, 0.3), check("test", "CI", "COMPLETED", "SUCCESS", 12960, 2)], labels: [FEATURE], body: "Closes #25.",
+  }),
+  pr(16, "fix: show the tax line once for Austrian addresses", "octocat", 60 * 24 * 12, "tax-line", {
+    reviewDecision: "REVIEW_REQUIRED", statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 17280, 0.3), check("test", "CI", "COMPLETED", "FAILURE", 17280, 2)], body: "Closes #34.",
+  }),
+  pr(14, "docs: describe the refund flow", ME, 60 * 24 * 14, "docs/refunds", {
+    reviewDecision: "APPROVED", statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 20160, 0.3)], labels: [DOCS], body: "Closes #28.",
+  }),
+  pr(13, "chore(deps): bump eslint from 9.20.0 to 9.21.0", "app/dependabot", 60 * 24 * 15, "dependabot/npm_and_yarn/eslint-9.21.0", {
+    author: bot("dependabot"), headRepositoryOwner: { login: "acme" }, isCrossRepository: false,
+    statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 21600, 0.3), check("test", "CI", "COMPLETED", "SUCCESS", 21600, 2)], body: "Bumps eslint.",
+  }),
+  pr(12, "feat: search suggestions while typing", ME, 60 * 24 * 16, "feat/suggest", {
+    isDraft: true, labels: [FEATURE], statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 23040, 0.3), check("test", "CI", "COMPLETED", "FAILURE", 23040, 2)], body: "Work in progress.",
+  }),
+  pr(11, "perf: cache product images", "hubot", 60 * 24 * 17, "image-cache", {
+    reviewDecision: "CHANGES_REQUESTED", statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 24480, 0.3), check("test", "CI", "COMPLETED", "SUCCESS", 24480, 2)], body: "Caches resized images for a day.",
+  }),
+  pr(9, "test: cover the coupon expiry", ME, 60 * 24 * 19, "test/coupon-expiry", {
+    reviewDecision: "REVIEW_REQUIRED", statusCheckRollup: [check("lint", "CI", "COMPLETED", "SUCCESS", 27360, 0.3), check("test", "CI", "COMPLETED", "SUCCESS", 27360, 2)], body: "For #24.",
+  }),
 ];
 const PRS_MERGED = [pr(40, "fix: trim coupon codes", ME, 60 * 24 * 8, "fix/coupon-trim", { state: "MERGED", mergedAt: at(60 * 24 * 8), statusCheckRollup: [check("test", "CI", "COMPLETED", "SUCCESS", 11520, 2)] })];
 const PRS_CLOSED = [pr(36, "feat: gift wrapping", "octocat", 60 * 24 * 10, "gift-wrap", { state: "CLOSED" })];
@@ -91,6 +131,16 @@ const RUNS = [
   run(9125, 125, "chore: release 0.9.2", "CI", "push", "main", "completed", "success", 60 * 26 + 2, 2.85),
   run(9124, 124, "refactor: split the pricing module", "CI", "pull_request", "refactor/pricing", "completed", "cancelled", 60 * 48, 0.67),
   run(9031, 31, "Nightly dependency check", "Deps", "schedule", "main", "completed", "success", 60 * 50, 0.37),
+  run(9123, 123, "docs: describe the refund flow", "CI", "pull_request", "docs/refunds", "completed", "success", 60 * 54, 1.2),
+  run(9122, 122, "fix: show the tax line once for Austrian addresses", "CI", "pull_request", "tax-line", "completed", "failure", 60 * 60, 2.4),
+  run(9121, 121, "feat: export orders as CSV", "CI", "pull_request", "csv-export", "completed", "success", 60 * 66, 2.9),
+  run(9120, 120, "chore(deps): bump eslint from 9.20.0 to 9.21.0", "CI", "pull_request", "dependabot/npm_and_yarn/eslint-9.21.0", "completed", "success", 60 * 70, 2.7),
+  run(9030, 30, "Nightly dependency check", "Deps", "schedule", "main", "completed", "success", 60 * 74, 0.4),
+  run(9119, 119, "perf: cache product images", "CI", "pull_request", "image-cache", "completed", "success", 60 * 80, 3.1),
+  run(9118, 118, "fix: trim coupon codes", "CI", "push", "main", "completed", "success", 60 * 96, 2.8),
+  run(9117, 117, "Pages", "Docs", "push", "main", "completed", "success", 60 * 97, 1.1),
+  run(9029, 29, "Nightly dependency check", "Deps", "schedule", "main", "completed", "failure", 60 * 98, 0.5),
+  run(9116, 116, "test: cover the coupon expiry", "CI", "pull_request", "test/coupon-expiry", "completed", "success", 60 * 110, 2.6),
 ];
 const step = (number, name, status, conclusion, startMin, tookSec) => ({ number, name, status, conclusion, startedAt: at(startMin), completedAt: status === "completed" ? new Date(Date.parse(at(startMin)) + tookSec * 1000).toISOString() : null });
 const job = (id, name, status, conclusion, startMin, tookSec, steps) => ({ databaseId: id, name, status, conclusion, startedAt: at(startMin),

@@ -2,10 +2,12 @@
 <html lang="en"><head><meta charset="utf-8"><title>Settings card</title>
 <link rel="stylesheet" href="card.css">
 <style>
-/* layout: the Settings dialog, centered */
-html, body { width: 880px; height: 845px; }
-.window { left: 160px; top: 41px; width: 560px; border-radius: 12px; }
+/* layout: the whole panel with compact rows left; right, the Settings dialog (Compact rows on), scaled to the width. The panel fills the card's height at its own size; the card is H - 28 tall (see shoot.sh). */
+html, body { width: 880px; height: 622px; }
+.panel { left: 22px; top: 30px; width: 444px; }
+.side { left: 486px; top: 50%; transform: translateY(-50%); width: 372px; border-radius: 12px; }
 </style></head>
 <body><div class="frame">
-  <div class="shot window"><img src="settings-window.png" alt=""></div>
+  <div class="shot panel"><img src="settings-panel.png" alt=""></div>
+  <div class="shot side"><img src="settings-dialog.png" alt=""></div>
 </div></body></html>

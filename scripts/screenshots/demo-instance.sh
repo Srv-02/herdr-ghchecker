@@ -9,6 +9,7 @@
 #   start:   launch the window (macOS gives a new instance the focus once; nothing here raises or focuses it afterwards)
 #   space:   open the demo space with a neutral prompt        quit: close the instance and stop its core session
 #   clean:   delete the demo project, the instance home and the core session state
+# WIN_W and WIN_H at prepare: the window size in points (default 1280 x 940); shoot.sh prepares one size per card.
 # DEMO_UPDATE=1 at prepare: a made-up release 1.1.0 is "available" (the gold Settings button); otherwise up to date.
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -57,9 +58,9 @@ prepare() {
     const update = { at: Date.now(), local: "1.0.0", latest: process.env.DEMO_UPDATE === "1" ? "v1.1.0" : "v1.0.0" };
     fs.writeFileSync(home + "/shared.json", JSON.stringify({ layout: "demo", "frame.welcomed": "finished", "workspace.panels": ["files", "changes", "ghchecker"], "ghchecker.update": update }));
     fs.writeFileSync(home + "/update-notes.json", JSON.stringify({ last_run: process.argv[2], presented: [] }));
-    // A window of 1280 x 940 points: tall enough for the whole Settings dialog.
-    fs.writeFileSync(home + "/window.json", JSON.stringify({ state: "windowed", bounds: [60, 30, 1280, 940] }));
   ' "${DEFAULT_LAYOUT:-$HOME/.config/herdr-app/layouts/main.json}" "$("${HERDR_APP_CLI:-herdr-app}" --version | awk '{print $NF}')"
+  # The window size in points, read by the app when it starts.
+  printf '{"state":"windowed","bounds":[60,30,%s,%s]}' "${WIN_W:-1280}" "${WIN_H:-940}" > "$HERDR_APP_HOME/window.json"
 }
 
 case "${1:-}" in
