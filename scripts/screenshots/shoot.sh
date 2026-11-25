@@ -98,23 +98,23 @@ if want issues && [ -f "$RAW/issues.png" ]; then
   panel issues $H_ISSUES issues-panel
   sips -c 963 888 --cropOffset 1 0 "$C/issues-panel.png" --out "$C/issues-panel-top.png" > /dev/null
   sips -c 58 888 --cropOffset 1119 0 "$C/issues-panel.png" --out "$C/issues-panel-foot.png" > /dev/null
-  render issues 880 571
+  render issues 1022 571
   # The whole issue overlay, down to its comment box.
-  box issue-overlay 91 105 1510 1444 issue-overlay; render issue-overlay 880 782
+  box issue-overlay 91 105 1510 1444 issue-overlay; render issue-overlay 1022 782
 fi
 if want prs && [ -f "$RAW/prs.png" ]; then
-  panel prs $H_PRS prs-panel; render prs 880 662
-  box pr-overlay 86 105 1510 1520 pr-overlay; render pr-overlay 880 820
+  panel prs $H_PRS prs-panel; render prs 1022 662
+  box pr-overlay 86 105 1510 1520 pr-overlay; render pr-overlay 1022 820
 fi
 if want actions && [ -f "$RAW/actions.png" ]; then
   panel actions $H_ACTIONS actions-panel
   sips -c 965 888 --cropOffset 1 0 "$C/actions-panel.png" --out "$C/actions-panel-top.png" > /dev/null
   sips -c 60 888 --cropOffset 1047 0 "$C/actions-panel.png" --out "$C/actions-panel-foot.png" > /dev/null
-  render actions 880 573
+  render actions 1022 573
   # The whole run overlay, down to the end of the log.
-  box run-overlay 118 122 1476 1357 run-overlay; render run-overlay 880 739
+  box run-overlay 118 122 1476 1357 run-overlay; render run-overlay 1022 739
 fi
 if want settings && [ -f "$RAW/settings-panel.png" ]; then
-  box settings-dialog 96 242 1236 1688 settings-dialog; render settings 880 904
+  box settings-dialog 96 242 1236 1688 settings-dialog; render settings 1022 904
 fi
 echo "rendered into screenshots/ and preview.png. Look at every image before you commit it: no user name, no real path, no real host."

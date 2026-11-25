@@ -40,9 +40,9 @@ Then click `GitHub` in the tab bar.
 - **Milestones:** one switch groups the list by milestone, each with its due date and progress (`5 / 8 done`); issues without one come last.
 - **Filter** by title, number, author or label.
 
-<p align="center"><img src="screenshots/issues.png" width="880" alt="The Issues tab grouped by milestone"></p>
+![The Issues tab grouped by milestone](screenshots/issues.png)
 
-<p align="center"><img src="screenshots/issue-overlay.png" width="880" alt="An issue in its overlay"></p>
+![An issue in its overlay](screenshots/issue-overlay.png)
 
 ### Pull requests
 
@@ -52,9 +52,9 @@ Then click `GitHub` in the tab bar.
 - **Approve and run** for workflow runs of first-time contributors and forks, with a second click to confirm.
 - **Merge box:** conflicts, checks and review in one place, only the merge methods the repository allows, Delete branch, and a second click to confirm. Locked for drafts, conflicts and failed checks.
 
-<p align="center"><img src="screenshots/prs.png" width="880" alt="The PRs tab with checks and reviews"></p>
+![The PRs tab with checks and reviews](screenshots/prs.png)
 
-<p align="center"><img src="screenshots/pr-overlay.png" width="880" alt="A pull request with its merge box"></p>
+![A pull request with its merge box](screenshots/pr-overlay.png)
 
 ### Actions
 
@@ -62,16 +62,16 @@ Then click `GitHub` in the tab bar.
 - **The tab's dot:** yellow while a run is in progress, red when the latest run on the default branch failed.
 - **Run overlay:** jobs on the left, steps and the trimmed failure log on the right; **Re-run failed jobs**, **Re-run all**, or **Cancel run** while it runs.
 
-<p align="center"><img src="screenshots/actions.png" width="880" alt="The Actions tab"></p>
+![The Actions tab](screenshots/actions.png)
 
-<p align="center"><img src="screenshots/run-overlay.png" width="880" alt="A failed run with its jobs, steps and log"></p>
+![A failed run with its jobs, steps and log](screenshots/run-overlay.png)
 
 ### Settings
 
 - **The gear** opens the settings: compact rows, labels shown or hidden, in color or mono, and who counts as external.
 - **Updates:** once a day the panel asks GitHub for a new release. The gear turns gold when one is out, and the dialog tells you what to ask your agent.
 
-<p align="center"><img src="screenshots/settings.png" width="880" alt="The Settings dialog"></p>
+![The Settings dialog](screenshots/settings.png)
 
 ### And
 
