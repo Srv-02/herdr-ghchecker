@@ -237,7 +237,9 @@ export default class GhChecker extends View {
   // ---- drawing: rows ----
   // Rows have a fixed height (one line in compact view, two otherwise) so the list can be virtual: only what is
   // on screen is drawn, which keeps scrolling smooth with hundreds of issues. A virtual list's rows take no
-  // handlers; the list reports clicks by key (list() below).
+  // handlers; the list reports clicks by key (list() below). list() also gives each row its key as id: GPUI repaints
+  // a hover change only for an element with an identity, so without it the hover background waited for the next
+  // unrelated repaint.
   row(size, t) {
     return h_flex().h(size).w_full().flex_none().px(8).gap(9).items_center().rounded(7).cursor_pointer().overflow_hidden().hover((s) => s.bg(t.hover));
   }
@@ -457,7 +459,7 @@ export default class GhChecker extends View {
     const id = `list-${tab}`;
     return box
       .child(v_virtual_list(id, items.length, items.map((x) => x.size), (n) => items[n].key,
-        (range) => items.slice(range.start, range.end).map((x) => x.draw(x.size)))
+        (range) => items.slice(range.start, range.end).map((x) => x.draw(x.size).id(x.key)))
         .size_full()
         .on_item_click((key) => byKey.get(key)?.open?.()))
       .child(Scrollbar.vertical(id).absolute().inset_0());
