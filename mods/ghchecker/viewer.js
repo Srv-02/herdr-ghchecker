@@ -11,6 +11,7 @@ import { tones, alpha, glyph, glyphOf, spinner, button, segmented, labelChip, pi
 import { issueState, prState, runState, checksOf, reviewOf } from "./lib/status.js";
 import { entries, tally, loginOf } from "./lib/timeline.js";
 import { split, linkRefs } from "./lib/markdown.js";
+import { visibleLabels, labelHex } from "./lib/labels.js";
 import { hostOf } from "./lib/images.js";
 import { mergeMethods, preferredMethod, mergeBlocked, canDeleteBranch, mergeArgs } from "./lib/merge.js";
 import { awaitingPath, awaitingRuns, approveArgs, runnerPaths, runnerVerdict } from "./lib/approve.js";
@@ -35,9 +36,10 @@ const lastMethod = () => { try { return localStorage.getItem("merge-method"); } 
 const keepMethod = (m) => { try { localStorage.setItem("merge-method", m); } catch { /* memory only */ } };
 
 export class Viewer {
-  // { kind: "issue" | "pr", repo, number, me, data (the list row, drawn until the full item is in) }
-  constructor({ kind, repo, number, data, me }, overlay, cx) {
-    Object.assign(this, { kind, repo, number, me, overlay });
+  // { kind: "issue" | "pr", repo, number, me, data (the list row, drawn until the full item is in),
+  //   labels (the panel's labels.show and labels.color) }
+  constructor({ kind, repo, number, data, me, labels }, overlay, cx) {
+    Object.assign(this, { kind, repo, number, me, overlay, labels: labels ?? {} });
     this.trail = []; this.items = {}; this.threads = {}; this.mode = "write"; this.section = "conversation";
     if (data) this.items[this.key()] = data;
     this.box = TextareaState.new({ placeholder: "Leave a comment (Markdown)" });
@@ -252,7 +254,7 @@ export class Viewer {
   event(key, e, t, cx) {
     const c = tones(t), [name, fill, words] = this.line(e, c);
     const word = (w) => typeof w === "string" ? div().child(w) : w.b !== undefined ? div().font_semibold().text_color(t.foreground).child(w.b)
-      : w.label ? labelChip(w.label, t) : w.code ? div().font_family(MONO).text_size(12).child(w.code) : div().line_through().child(w.struck ?? "");
+      : w.label ? labelChip(w.label, t, labelHex(w.label, this.labels)) : w.code ? div().font_family(MONO).text_size(12).child(w.code) : div().line_through().child(w.struck ?? "");
     const target = e.mention ?? (e.commit?.url ? e.commit : null);
     const mark = h_flex().size(26).flex_none().justify_center().items_center().rounded(13).border_1()
       .bg(fill ? alpha(fill, "2e") : t.raised).border_color(fill ?? t.border).child(glyph(name, 13, fill ?? t.muted));
@@ -411,7 +413,8 @@ export class Viewer {
         .child(part("Review", quiet(review.label, c[review.tone]))))
       .child(part("Assignees", (i.assignees ?? []).length ? v_flex().gap(6).children(i.assignees.map((a) => h_flex().gap(8).items_center()
         .child(this.face(a.login, null, 18, t, cx)).child(div().truncate().child(display(a.login))))) : quiet("No one")))
-      .child(part("Labels", (i.labels ?? []).length ? h_flex().gap(4).flex_wrap().children(i.labels.map((l) => labelChip(l, t))) : quiet("None")))
+      .when(this.labels["labels.show"] !== false, (e) => e.child(part("Labels", (i.labels ?? []).length
+        ? h_flex().gap(4).flex_wrap().children(visibleLabels(i.labels, this.labels).map((l) => labelChip(l, t, labelHex(l, this.labels)))) : quiet("None"))))
       .child(part("Milestone", i.milestone?.title ? h_flex().gap(6).items_center().child(glyph("milestone", 13, t.muted)).child(i.milestone.title) : quiet("None")))
       .when(linked.length > 0, (e) => e.child(part(pr ? "Closes" : "Development", v_flex().gap(6).children(linked.map((x) => h_flex().id(`dev-${x.number}`).gap(6).items_center().cursor_pointer()
         .on_click((_e, cx) => this.follow(x.url, cx))

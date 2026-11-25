@@ -12,6 +12,7 @@ Everything GitHub Checker does, in detail. For the overview, see the [README](..
 - [Actions](#actions)
 - [Keys](#keys)
 - [Settings](#settings)
+- [Updates](#updates)
 - [What it runs and touches](#what-it-runs-and-touches)
 - [Removing](#removing)
 - [Development](#development)
@@ -76,7 +77,7 @@ Then click `GitHub` in the tab bar.
 - Lists: up to 200 issues and 100 pull requests per state, the 40 latest runs. Only the rows on screen are drawn, so long lists scroll smoothly.
 - **Search and sort:** the funnel at the right of the header shows or hides the text filter and the sort menu of Issues and PRs. State, All / Mine / … and Milestones stay visible; on Actions the funnel stays as it is but changes nothing (the workflow menu is always there). A dot on the funnel says the hidden search or sort is set.
 - **The refresh icon** turns while a sync runs and turns red with a dot when the last sync failed (offline, signed out); its tooltip says why and when the panel was last updated.
-- **Compact view:** the list button between refresh and the funnel switches between two lines per row (title, then number, age, author, labels) and one line (number and title). Long titles are cut at the end of the line; the overlay shows them in full.
+- **Compact rows** (Settings) switches between two lines per row (title, then number, age, author, labels) and one line (number and title). Long titles are cut at the end of the line; the overlay shows them in full.
 - A click into the panel (or into another panel) keeps the repository of the last focused terminal.
 
 ### Status bar
@@ -129,29 +130,44 @@ The panel takes these commands, for `keys.json` (`"alt-g i": "ghchecker:issues"`
 | `failed` | Shows the failed runs |
 | `group` | Groups issues by milestone, or stops |
 | `open` | Opens the first row in its overlay |
-| `compact` | Switches between one and two lines per row |
+| `compact` | Switches between one and two lines per row (the setting Compact rows) |
+| `settings` | Opens the Settings dialog |
 | `filter` | Shows or hides search and sort |
 | `refresh` | Syncs now |
 
 ## Settings
 
-The settings live in `ghchecker.json` in the Herdr app folder (`~/.config/herdr-app/ghchecker.json`). There is no settings page yet: edit the file. A missing file means the defaults; a broken file, or a value of the wrong type, means the default for that value. The panel reads the file again with every full sync, so a change applies within a minute or with the refresh button.
+The gear at the right of the header opens the Settings dialog. Every change is saved at once to `ghchecker.json` in the Herdr app folder (`~/.config/herdr-app/ghchecker.json`) and the panel uses it right away. The file can also be edited by hand: a missing file means the defaults; a broken file, or a value of the wrong type, means the default for that value (the dialog then refuses to save and says so).
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
+| `update_check` | true / false | `true` | Once a day, asks GitHub for the latest release of GitHub Checker. |
+| `compact_rows` | true / false | `false` | One line per issue, pull request or run: the number and the title. |
+| `labels.show` | true / false | `true` | Labels in the lists and in the issue and pull request view. |
+| `labels.color` | `"color"` / `"mono"` | `"color"` | Each label in its GitHub color, or all in one quiet color of the theme. |
 | `external.includeBots` | true / false | `false` | The External filter also lists items opened by bots (github-actions, dependabot, any `[bot]` account). |
 | `external.ignoreAuthors` | list of logins | `[]` | Logins the External filter never lists, e.g. teammates. |
 
 ```json
 {
-  "external": {
-    "includeBots": true,
-    "ignoreAuthors": ["hubot", "octocat"]
-  }
+  "compact_rows": true,
+  "labels": { "color": "mono" },
+  "external": { "includeBots": true, "ignoreAuthors": ["hubot", "octocat"] }
 }
 ```
 
 A dotted key (`"external.includeBots": true`) works too. All settings are defined in one place, `mods/ghchecker/lib/settings.js`.
+
+## Updates
+
+- Once a day one panel (the one holding a lease in shared `ghchecker.lease`) asks `https://api.github.com/repos/Srv-02/herdr-ghchecker/releases/latest`, without a token and without anything about you. The answer is kept in shared `ghchecker.update`; `update_check` off sends nothing.
+- A newer release colors the gear blue, with `<version> available` in its tooltip. The dialog shows the version, a link to the release notes and what to ask your agent:
+
+  ```text
+  Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/Srv-02/herdr-ghchecker/tree/main
+  ```
+
+- **Check now** in the dialog asks at once, also with `update_check` off.
 
 ## What it runs and touches
 
@@ -159,8 +175,9 @@ A dotted key (`"external.includeBots": true`) works too. All settings are define
 - **git**, in the terminal's folder (on its machine): `git remote -v`. Nothing else.
 - **Pictures** in issue bodies and avatars are downloaded with `curl`, but only from GitHub's own hosts: `github.com` (attachments under `/user-attachments/` and `/<login>.png` avatars), `avatars.githubusercontent.com`, `camo.githubusercontent.com` and the other `*.githubusercontent.com` hosts, over https only (also after redirects, at most 5), at most 20 MB. A picture from anywhere else is not loaded: it shows as `Image from <host> · open it`, a link to your browser. So a stranger's issue can't track when you read it or make this computer call an internal address.
 - **The gh token** goes along only for `github.com` itself (private attachments), on stdin, never on a command line. curl drops it when GitHub redirects to its storage host.
-- **Files:** `data/ghchecker/` in the Herdr app folder holds one cache file per repository, the pictures and the avatars. The filters, the tab and the last merge method are kept in the mod's own storage. `ghchecker.json` is only read.
-- **Shared values:** `workspace.panels` (adds `ghchecker` so the tab bar restores the panel), `ghchecker.pick` (menus to the panel) and `ghchecker.changed` (an overlay asks the panel to sync).
+- **Files:** `data/ghchecker/` in the Herdr app folder holds one cache file per repository, the pictures and the avatars. The filters, the tab and the last merge method are kept in the mod's own storage. `ghchecker.json` is written only by the Settings dialog.
+- **Network besides gh:** the daily update check (see [Updates](#updates)) and the pictures above.
+- **Shared values:** `workspace.panels` (adds `ghchecker` so the tab bar restores the panel), `ghchecker.pick` (menus to the panel), `ghchecker.changed` (an overlay asks the panel to sync), `ghchecker.config` (the dialog saved), `ghchecker.update` and `ghchecker.lease` (the update check).
 
 ## Removing
 

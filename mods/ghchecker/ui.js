@@ -61,12 +61,13 @@ export function segmented(id, items, value, t, onPick) {
 export const chip = (label, color, small = true) => div().flex_none().px(small ? 7 : 8).py(small ? 0 : 1).rounded(9).border_1().border_color(color)
   .text_size(small ? 11 : 12).text_color(color).child(label);
 
-// A repository label: outlined in its own color, as on GitHub (the color is the label's, not the theme's).
-export function labelChip(l, t) {
-  const c = `#${String(l.color ?? "888888").replace("#", "")}`;
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+// A repository label: outlined in its own color, as on GitHub (the color is the label's, not the theme's); `hex` null
+// (labels.color "mono", or no usable color) draws it in the theme's muted color.
+export function labelChip(l, t, hex) {
+  if (!hex) return chip(l.name, t.muted);
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const visible = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.3;
-  return chip(l.name, visible ? c : t.muted);
+  return chip(l.name, visible ? hex : t.muted);
 }
 
 // A pill filled with a tint of the color: the state in an overlay's byline.

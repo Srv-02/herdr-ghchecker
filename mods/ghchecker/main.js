@@ -4,21 +4,26 @@
 // overlays of the panel the issue or pull request ({ item }), the run ({ run }) and the small menus ({ menu }).
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, v_virtual_list, Scrollbar } from "gpui-base";
-import { spaces, panes, focused, home, appHome, readTextFile, layout, theme, openOverlay, closeOverlay, props, shared, setShared, run, nextCommand, checking, window as hostWindow } from "herdr";
+import { spaces, panes, focused, home, appHome, readTextFile, writeTextFile, layout, theme, openOverlay, closeOverlay, props, shared, setShared, run, nextCommand, checking, notify, window as hostWindow } from "herdr";
 import { account, repoOf } from "./gh.js";
 import { Store } from "./store.js";
 import { Viewer } from "./viewer.js";
 import { RunView } from "./run.js";
+import { SettingsDialog } from "./settings.js";
 import { tones, glyph, glyphOf, button, segmented, chip, labelChip, blankslate, openUrl, MONO, CLEAR } from "./ui.js";
 import { issueState, prState, runState, checksSummary, reviewOf, actionsDot, running } from "./lib/status.js";
 import { ago, age, day, duration } from "./lib/time.js";
 import { groupByMilestone } from "./lib/milestones.js";
 import { SORTS, DEFAULTS, filterIssues, filterPrs, filterRuns, workflowsOf, hiddenFiltersSet } from "./lib/filters.js";
 import { locationOf, locationKey, shortPath, repoUrl } from "./lib/location.js";
-import { loadSettings, defaults } from "./lib/settings.js";
+import { loadSettings, saveSettings, defaults } from "./lib/settings.js";
+import { createUpdateGate, updateCheck, fetchLatest, localVersion, gearState } from "./lib/update.js";
+import { leaseNext } from "./lib/lease.js";
 import { statsOf, statsDue } from "./lib/stats.js";
+import { visibleLabels, labelHex } from "./lib/labels.js";
 
 const MOD = "ghchecker";
+const UPDATE_TINT = (t) => t.ansi4 ?? t.accent; // the Settings button while a newer release is out
 const TICK = 3000;     // how often the panel looks at the focused folder and at what is due
 const SYNC = 60000;    // a full sync of the shown repository
 const LIVE = 12000;    // the runs while one is queued or in progress
@@ -52,6 +57,7 @@ export default class GhChecker extends View {
     if (p.item) { this.viewer = new Viewer(p.item, p.overlay, cx); return; }
     if (p.run) { this.runView = new RunView(p.run, p.overlay, cx); return; }
     if (p.menu) { this.menu = { ...p.menu, overlay: p.overlay }; return; }
+    if (p.settings) { this.dialog = new SettingsDialog(p.overlay, cx); return; }
     if (p.button) {
       // The tab bar restores each space's panel only if it is one of these.
       const panels = shared("workspace.panels") ?? ["files", "changes"];
@@ -65,7 +71,7 @@ export default class GhChecker extends View {
     this.tab = remembered("tab", "issues");
     const saved = remembered("filters", {});
     this.f = Object.fromEntries(Object.entries(DEFAULTS).map(([k, v]) => [k, { ...v, ...(saved[k] ?? {}) }]));
-    this.query = { issues: "", prs: "" }; this.compact = remembered("compact", false); this.filtering = remembered("filtering", false);
+    this.query = { issues: "", prs: "" }; this.filtering = remembered("filtering", false);
     this.inputs = {};
     for (const [tab, placeholder] of [["issues", "Filter issues"], ["prs", "Filter pull requests"]]) {
       const input = InputState.new({ placeholder });
@@ -75,10 +81,13 @@ export default class GhChecker extends View {
     this.pickedAt = shared("ghchecker.pick")?.at; this.changedAt = shared("ghchecker.changed")?.at;
     if (checking()) return; // herdr-app check runs init: no gh calls there
     cx.spawn(async (cx) => { this.account = await account(); cx.notify(); });
-    this.readSettings(cx);
+    this.readSettings(cx, true);
+    this.configAt = shared("ghchecker.config")?.at;
+    readTextFile(`${appHome()}/mods/ghchecker/mod.json`).then((text) => { this.version = localVersion(text); cx.notify(); }, () => null);
+    this.watchUpdates(cx);
     cx.timer.every(TICK, (cx) => this.tick(cx));
     // keys.json: "alt-g i": "ghchecker:issues", or prs, actions, refresh, open (the first row), group (by milestone),
-    // failed (the failed runs), compact (one line per row, or two), filter (show or hide the filters).
+    // failed (the failed runs), compact (one line per row, or two), filter (show or hide search and sort), settings.
     cx.spawn(async (cx) => {
       for (;;) {
         const c = await nextCommand();
@@ -87,6 +96,7 @@ export default class GhChecker extends View {
         else if (c === "open") this.openFirst();
         else if (c === "group") this.setFilter("issues", { group: !this.f.issues.group }, cx);
         else if (c === "compact") this.setCompact(!this.compact, cx);
+        else if (c === "settings") this.openSettings();
         else if (c === "filter") this.setFiltering(!this.filtering, cx);
         else if (c === "failed") { this.setFilter("actions", { show: "failed" }, cx); this.setTab("actions", cx); }
         cx.notify();
@@ -123,8 +133,47 @@ export default class GhChecker extends View {
     if (this.f.prs.state !== "open") out.push(`prs:${this.f.prs.state}`);
     return out;
   }
-  readSettings(cx) {
-    cx.spawn(async (cx) => { this.settings = (await loadSettings(readTextFile, appHome)).values; cx.notify(); });
+  // ghchecker.json, read at start, with every full sync and when the Settings dialog saved. `first`: the compact
+  // choice of version 0.x (kept in the mod's storage) moves into the file once.
+  readSettings(cx, first = false) {
+    cx.spawn(async (cx) => {
+      this.settings = (await loadSettings(readTextFile, appHome)).values;
+      if (first && remembered("compact", false) === true && !this.settings.compact_rows) {
+        this.settings.compact_rows = true;
+        await saveSettings({ compact_rows: true }, { readTextFile, writeTextFile, appHome }).catch(() => null);
+      }
+      if (first) keep("compact", null);
+      cx.notify();
+    });
+  }
+  get compact() { return this.settings?.compact_rows === true; }
+  setCompact(on, cx) {
+    this.settings = { ...this.settings, compact_rows: on }; cx.notify();
+    saveSettings({ compact_rows: on }, { readTextFile, writeTextFile, appHome })
+      .then(() => setShared("ghchecker.config", { at: Date.now() }), (e) => notify({ title: "Compact rows", body: String(e?.message ?? e), level: "error" }));
+  }
+
+  // The daily update check (lib/update.js): one panel copy holds the lease (lib/lease.js) and asks GitHub at most
+  // once a day; the result goes to shared "ghchecker.update" for every copy. From filer-pro's update pass.
+  watchUpdates(cx) {
+    const me = (Math.random().toString(36).slice(2) + "00000000").slice(0, 8), gate = createUpdateGate(Date.now);
+    const beat = (cx) => {
+      const next = leaseNext(shared("ghchecker.lease"), me, Date.now());
+      if (!next.mine) { gate.take(false); return; }
+      if (next.write) setShared("ghchecker.lease", { owner: next.owner, at: next.at });
+      if (gate.take(true)) cx.spawn(async (cx) => { try { await this.updatePass(cx); } catch { /* silent: a failed check counts as one */ } finally { gate.done(); } });
+    };
+    beat(cx);
+    cx.timer.every(30000, beat);
+  }
+  async updatePass(cx) {
+    const enabled = (await loadSettings(readTextFile, appHome)).values.update_check;
+    const local = enabled ? localVersion(await readTextFile(`${appHome()}/mods/ghchecker/mod.json`).catch(() => null)) : null;
+    const out = await updateCheck({ enabled, state: shared("ghchecker.update"), local, now: Date.now(), fetch: () => fetchLatest(globalThis.fetch, (ms) => cx.sleep(ms)) });
+    if (out.state !== undefined) setShared("ghchecker.update", out.state);
+  }
+  openSettings() {
+    openOverlay({ mod: MOD, kind: "dialog", modal: true, width: 560, height: 0.78, props: { settings: true } });
   }
   sync(cx, full = true, parts = this.parts()) {
     const repo = this.shown;
@@ -148,7 +197,6 @@ export default class GhChecker extends View {
     else if (now - (this.drawnAt ?? 0) > 30000) cx.notify(); // "Updated 2m ago" moves on
   }
 
-  setCompact(on, cx) { this.compact = on; keep("compact", on); cx.notify(); }
   setFiltering(on, cx) { this.filtering = on; keep("filtering", on); cx.notify(); }
   setTab(tab, cx) { this.tab = tab; keep("tab", tab); cx.notify(); }
   setFilter(tab, patch, cx) {
@@ -161,7 +209,8 @@ export default class GhChecker extends View {
 
   // ---- opening ----
   openItem(item, kind) {
-    openOverlay({ mod: MOD, kind: "dialog", width: 0.88, height: 0.9, props: { item: { kind, repo: this.shown, number: item.number, me: this.account?.login ?? null, data: item } } });
+    openOverlay({ mod: MOD, kind: "dialog", width: 0.88, height: 0.9, props: { item: { kind, repo: this.shown, number: item.number, me: this.account?.login ?? null, data: item,
+      labels: { "labels.show": this.settings["labels.show"], "labels.color": this.settings["labels.color"] } } } });
   }
   openRun(r) {
     openOverlay({ mod: MOD, kind: "dialog", width: 0.86, height: 0.88, props: { run: { repo: this.shown, run: r } } });
@@ -213,7 +262,7 @@ export default class GhChecker extends View {
       .child(div().flex_1().min_w(0).truncate().child(i.title))
       .child(div().flex_none().text_size(11).text_color(t.muted).child(comments));
     return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
-      .child(this.lines(i.title, `#${i.number} · ${ago(i.createdAt)} by ${who(i.author)}`, (i.labels ?? []).slice(0, 3).map((l) => labelChip(l, t)), t))
+      .child(this.lines(i.title, `#${i.number} · ${ago(i.createdAt)} by ${who(i.author)}`, visibleLabels(i.labels, this.settings, 3).map((l) => labelChip(l, t, labelHex(l, this.settings))), t))
       .child(this.side(t, comments));
   }
 
@@ -225,7 +274,7 @@ export default class GhChecker extends View {
       .child(div().w(42).flex_none().text_size(11).text_color(t.muted).child(`#${p.number}`))
       .child(div().flex_1().min_w(0).truncate().child(p.title))
       .child(div().flex_none().text_size(11).child(dot));
-    const chips = [...(p.isDraft ? [chip("draft", t.muted)] : []), ...(p.labels ?? []).slice(0, 2).map((l) => labelChip(l, t))];
+    const chips = [...(p.isDraft ? [chip("draft", t.muted)] : []), ...visibleLabels(p.labels, this.settings, 2).map((l) => labelChip(l, t, labelHex(l, this.settings)))];
     return this.row(size, t).child(glyph(s.icon, 15, c[s.tone]))
       .child(this.lines(p.title, `#${p.number} · ${ago(p.updatedAt)} by ${who(p.author)}`, chips, t, `${head} → ${p.baseRefName}`))
       .child(this.side(t, dot, open ? div().text_color(c[review.tone]).child(review.label) : null));
@@ -263,6 +312,7 @@ export default class GhChecker extends View {
   // reason and the last update in its tooltip).
   header(t, c, repo) {
     const e = repo ? this.store.entry(repo) : null, failed = Boolean(e?.error) && !e?.syncing;
+    const gear = gearState(shared("ghchecker.update"), this.version);
     const where = repo === null ? shortPath(this.where().cwd, home()) : repo;
     return h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
       .child(h_flex().flex_none().gap(7).items_center().font_semibold().child(glyph("github", 14, t.foreground)).child("GitHub"))
@@ -277,16 +327,17 @@ export default class GhChecker extends View {
         .child(this.headButton("refresh", "refresh", false, false,
           e?.syncing ? "Syncing…" : failed ? `Sync failed: ${e.error}. Click to try again.` : e?.at ? `Refresh · updated ${ago(new Date(e.at).toISOString())}` : "Refresh",
           (cx) => this.sync(cx), t, c, { spin: Boolean(e?.syncing), alarm: failed }))
-        .child(this.headButton("compact", "list", this.compact, false, this.compact ? "Two lines per row" : "One line per row", (cx) => this.setCompact(!this.compact, cx), t, c))
         // The same on every tab; Actions has no search or sort, so there it changes nothing.
         .child(this.headButton("filter", "filter", this.filtering, hiddenFiltersSet(this.tab, this.f[this.tab], this.query[this.tab]) && !this.filtering,
-          this.filtering ? "Hide search and sort" : "Search and sort", (cx) => this.setFiltering(!this.filtering, cx), t, c)));
+          this.filtering ? "Hide search and sort" : "Search and sort", (cx) => this.setFiltering(!this.filtering, cx), t, c)))
+      // Settings, also without a repository; blue while a newer release is out.
+      .child(this.headButton("settings", "settings", false, false, gear.tip, () => this.openSettings(), t, c, { tint: gear.update ? UPDATE_TINT(t) : null }));
   }
 
   // A header button as Filer Pro's: a 14 px icon in a 24 px hit area; on: the selected background. `marked`: a grey
-  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red.
-  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false } = {}) {
-    const icon = glyph(name, 14, alarm ? c.failure : on ? t.foreground : t.muted);
+  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red; `tint`: the icon in that color.
+  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false, tint = null } = {}) {
+    const icon = glyph(name, 14, alarm ? c.failure : tint ?? (on ? t.foreground : t.muted));
     return div().id(id).relative().w(24).h(24).flex_none().flex().items_center().justify_center().rounded(6)
       .when(on, (e) => e.bg(t.selected)).tooltip(tip)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -458,6 +509,7 @@ export default class GhChecker extends View {
     if (this.viewer) return this.viewer.render(cx);
     if (this.runView) return this.runView.render(cx);
     if (this.menu) return this.renderMenu(t);
+    if (this.dialog) return this.dialog.render(cx);
     if (this.button) return this.toolbar(t);
     this.here = null; this.drawnAt = Date.now();
     if (hidden()) { this.away = true; return this.shell(t); }
@@ -484,6 +536,8 @@ export default class GhChecker extends View {
         cx.spawn(async (cx) => { await this.store.read(repo); cx.notify(); if (Date.now() - e.at > FRESH) this.sync(cx); });
       }
     }
+    const config = shared("ghchecker.config");
+    if (config?.at && config.at !== this.configAt) { this.configAt = config.at; this.readSettings(cx); }
     const changed = shared("ghchecker.changed");
     if (changed?.at && changed.at !== this.changedAt) { this.changedAt = changed.at; if (changed.repo === this.shown) this.sync(cx); }
     if (this.away) { this.away = false; if (this.shown && Date.now() - this.store.entry(this.shown).at > FRESH) this.sync(cx); }
