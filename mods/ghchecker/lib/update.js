@@ -111,8 +111,8 @@ export function createUpdateGate(now) {
 
 export const GITHUB_URL = `https://github.com/${REPO}`;
 export const COFFEE_URL = "https://www.buymeacoffee.com/michaelmayer";
-// What to tell the agent to update, as the README's Install says.
-export const UPDATE_PROMPT = `Read ~/.config/herdr-app/AGENTS.md, then add this mod: ${GITHUB_URL}/tree/main`;
+// What to tell the agent in Herdr to update.
+export const UPDATE_PROMPT = `Update this mod: ${GITHUB_URL}/tree/main`;
 
 // The Settings button of the panel's header: marked with the version while a newer release is out.
 export function gearState(state, local) {

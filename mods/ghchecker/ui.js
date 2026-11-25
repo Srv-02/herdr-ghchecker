@@ -7,6 +7,8 @@ import { exec } from "herdr";
 
 export const MONO = "JetBrains Mono";
 export const CLEAR = "#00000000";
+// The one color not taken from the theme: the gold of an available update (the Settings button and the dialog's box).
+export const GOLD = "#f0c85a";
 
 // Tone (lib/status.js) to a color of the theme: ANSI green, red, yellow, magenta and blue, so every theme,
 // light or dark, draws the states in its own palette.

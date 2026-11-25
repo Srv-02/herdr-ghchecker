@@ -10,7 +10,7 @@ import { Store } from "./store.js";
 import { Viewer } from "./viewer.js";
 import { RunView } from "./run.js";
 import { SettingsDialog } from "./settings.js";
-import { tones, glyph, glyphOf, button, segmented, chip, labelChip, blankslate, openUrl, MONO, CLEAR } from "./ui.js";
+import { tones, alpha, glyph, glyphOf, button, segmented, chip, labelChip, blankslate, openUrl, MONO, CLEAR, GOLD } from "./ui.js";
 import { issueState, prState, runState, checksSummary, reviewOf, actionsDot, running } from "./lib/status.js";
 import { ago, age, day, duration } from "./lib/time.js";
 import { groupByMilestone } from "./lib/milestones.js";
@@ -23,7 +23,6 @@ import { statsOf, statsDue } from "./lib/stats.js";
 import { visibleLabels, labelHex } from "./lib/labels.js";
 
 const MOD = "ghchecker";
-const UPDATE_TINT = (t) => t.ansi4 ?? t.accent; // the Settings button while a newer release is out
 const TICK = 3000;     // how often the panel looks at the focused folder and at what is due
 const SYNC = 60000;    // a full sync of the shown repository
 const LIVE = 12000;    // the runs while one is queued or in progress
@@ -173,7 +172,7 @@ export default class GhChecker extends View {
     if (out.state !== undefined) setShared("ghchecker.update", out.state);
   }
   openSettings() {
-    openOverlay({ mod: MOD, kind: "dialog", modal: true, width: 560, height: 0.78, props: { settings: true } });
+    openOverlay({ mod: MOD, kind: "dialog", modal: true, width: 620, height: 0.9, props: { settings: true } });
   }
   sync(cx, full = true, parts = this.parts()) {
     const repo = this.shown;
@@ -330,20 +329,22 @@ export default class GhChecker extends View {
         // The same on every tab; Actions has no search or sort, so there it changes nothing.
         .child(this.headButton("filter", "filter", this.filtering, hiddenFiltersSet(this.tab, this.f[this.tab], this.query[this.tab]) && !this.filtering,
           this.filtering ? "Hide search and sort" : "Search and sort", (cx) => this.setFiltering(!this.filtering, cx), t, c)))
-      // Settings, also without a repository; blue while a newer release is out.
-      .child(this.headButton("settings", "settings", false, false, gear.tip, () => this.openSettings(), t, c, { tint: gear.update ? UPDATE_TINT(t) : null }));
+      // Settings, also without a repository; gold with a slow shine while a newer release is out.
+      .child(this.headButton("settings", "settings", false, false, gear.tip, () => this.openSettings(), t, c, { gold: gear.update }));
   }
 
   // A header button as Filer Pro's: a 14 px icon in a 24 px hit area; on: the selected background. `marked`: a grey
-  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red; `tint`: the icon in that color.
-  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false, tint = null } = {}) {
-    const icon = glyph(name, 14, alarm ? c.failure : tint ?? (on ? t.foreground : t.muted));
+  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red; `gold`: an update is out (icon, dot, shine).
+  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false, gold = false } = {}) {
+    const icon = glyph(name, 14, alarm ? c.failure : gold ? GOLD : on ? t.foreground : t.muted);
     return div().id(id).relative().w(24).h(24).flex_none().flex().items_center().justify_center().rounded(6)
-      .when(on, (e) => e.bg(t.selected)).tooltip(tip)
+      .when(on, (e) => e.bg(t.selected)).when(gold, (e) => e.bg(alpha(GOLD, "1a"))).tooltip(tip)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-      .cursor_pointer().hover((s) => s.bg(on ? t.selected : t.hover)).on_click((_e, cx) => onClick(cx))
+      .cursor_pointer().hover((s) => s.bg(gold ? alpha(GOLD, "33") : on ? t.selected : t.hover)).on_click((_e, cx) => onClick(cx))
+      // The shine: a gold layer that breathes every 2.4 s, natively (no render runs for it).
+      .when(gold, (e) => e.child(div().absolute().top(0).left(0).size(24).rounded(6).bg(alpha(GOLD, "38")).loop("opacity", { from: 0.15, to: 1, period: 2400 })))
       .child(spin ? icon.spin(900) : icon)
-      .when(marked || alarm, (e) => e.child(div().absolute().top(3).right(3).size(5).rounded(3).bg(alarm ? c.failure : t.muted)));
+      .when(marked || alarm || gold, (e) => e.child(div().absolute().top(2).right(2).size(6).rounded(3).bg(gold ? GOLD : alarm ? c.failure : t.muted)));
   }
 
   tabs(t, c) {

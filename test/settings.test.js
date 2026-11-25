@@ -70,3 +70,10 @@ test("saveSettings reads, then writes only if the file is unchanged (expected te
   await saveSettings({ compact_rows: true }, { readTextFile: async () => null, writeTextFile: async (...a) => { calls.push(a); }, appHome: () => "/app" });
   assert.deepEqual(calls, [["/app/ghchecker.json", '{\n  "compact_rows": true\n}\n', null]]);
 });
+
+test("changedSettings: only what differs goes to the file", async () => {
+  const { changedSettings } = await import("../mods/ghchecker/lib/settings.js");
+  const before = defaults();
+  assert.deepEqual(changedSettings(before, { ...before }), {});
+  assert.deepEqual(changedSettings(before, { ...before, compact_rows: true, "external.ignoreAuthors": ["hubot"] }), { compact_rows: true, "external.ignoreAuthors": ["hubot"] });
+});

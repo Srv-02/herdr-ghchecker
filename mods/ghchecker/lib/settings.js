@@ -7,18 +7,18 @@
 export const CONFIG_FILE = "ghchecker.json";
 
 export const SETTINGS = [
-  { key: "update_check", type: "boolean", default: true, label: "Check for updates",
-    about: "Once a day, asks GitHub for the latest release of GitHub Checker. Nothing else is sent." },
+  { key: "update_check", type: "boolean", default: true, label: "Check for updates automatically",
+    about: "Once a day, GitHub Checker asks GitHub whether a new version exists. Nothing about you or your repositories is sent, but GitHub sees your IP address." },
   { key: "compact_rows", type: "boolean", default: false, label: "Compact rows",
-    about: "One line per issue, pull request or run: the number and the title." },
+    about: "One line per issue, pull request or run: number and title. Off: a second line with age, author and labels." },
   { key: "labels.show", type: "boolean", default: true, label: "Show labels",
-    about: "Labels in the lists and in the issue and pull request view." },
+    about: "Labels in the lists and in the overlay. The filter still finds them when they are hidden." },
   { key: "labels.color", type: "choice", choices: ["color", "mono"], default: "color", label: "Label colors",
-    about: "Color: each label in its color on GitHub. Mono: all labels in one quiet color of the theme." },
-  { key: "external.includeBots", type: "boolean", default: false, label: "Bots count as external",
-    about: "The External filter also lists items opened by bots (github-actions, dependabot)." },
+    about: "Mono draws every label in one quiet color instead of its GitHub color." },
+  { key: "external.includeBots", type: "boolean", default: false, label: "Count bots as external",
+    about: "Off: dependabot, github-actions and other bots never show under External." },
   { key: "external.ignoreAuthors", type: "logins", default: [], label: "Never external",
-    about: "Logins the External filter never lists, e.g. teammates. Separated by commas." },
+    about: "Logins that count as yours, comma separated. For a second account or a co-maintainer." },
 ];
 
 const CHECK = {
@@ -86,4 +86,9 @@ export function withSettings(text, edits) {
 export async function saveSettings(edits, { readTextFile, writeTextFile, appHome }) {
   const path = `${appHome()}/${CONFIG_FILE}`, text = await readTextFile(path);
   await writeTextFile(path, withSettings(text, edits), text);
+}
+
+// The keys whose value differs between two value sets (what Save writes).
+export function changedSettings(before, after) {
+  return Object.fromEntries(SETTINGS.map((x) => x.key).filter((k) => JSON.stringify(before?.[k]) !== JSON.stringify(after?.[k])).map((k) => [k, after[k]]));
 }

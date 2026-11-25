@@ -188,7 +188,7 @@ test("gearState: the Settings button marked with the version only while a newer 
   assert.equal(gearState({ at: 1, local: "1.0.0", latest: "v1.1.0" }, "1.1.0").update, false, "updated meanwhile: no mark");
   assert.equal(gearState({ at: 1, latest: "nonsense" }, "1.0.0").update, false);
   assert.equal(GITHUB_URL, "https://github.com/Srv-02/herdr-ghchecker");
-  assert.match(UPDATE_PROMPT, /tree\/main$/);
+  assert.equal(UPDATE_PROMPT, "Update this mod: https://github.com/Srv-02/herdr-ghchecker/tree/main");
 });
 
 test("updateStatus and checkedAt: what the dialog's Updates row says", async () => {
