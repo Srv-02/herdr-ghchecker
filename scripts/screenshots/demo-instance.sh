@@ -9,6 +9,7 @@
 #   start:   launch the window (macOS gives a new instance the focus once; nothing here raises or focuses it afterwards)
 #   space:   open the demo space with a neutral prompt        quit: close the instance and stop its core session
 #   clean:   delete the demo project, the instance home and the core session state
+# DEMO_UPDATE=1 at prepare: a made-up release 1.1.0 is "available" (the gold Settings button); otherwise up to date.
 set -eu
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export HERDR_APP_HOME="$ROOT/tmp/shots-home"
@@ -51,8 +52,13 @@ prepare() {
     ] };
     fs.writeFileSync(home + "/layouts/demo.json", JSON.stringify(src, null, 2));
     // A new instance opens the welcome screen and the what-is-new window: pre-seed both as done.
-    fs.writeFileSync(home + "/shared.json", JSON.stringify({ layout: "demo", "frame.welcomed": "finished", "workspace.panels": ["files", "changes", "ghchecker"] }));
+    // The update check counts as done today, so the demo asks GitHub nothing: up to date, or with DEMO_UPDATE=1 a
+    // made-up newer release (the gold Settings button).
+    const update = { at: Date.now(), local: "1.0.0", latest: process.env.DEMO_UPDATE === "1" ? "v1.1.0" : "v1.0.0" };
+    fs.writeFileSync(home + "/shared.json", JSON.stringify({ layout: "demo", "frame.welcomed": "finished", "workspace.panels": ["files", "changes", "ghchecker"], "ghchecker.update": update }));
     fs.writeFileSync(home + "/update-notes.json", JSON.stringify({ last_run: process.argv[2], presented: [] }));
+    // A window of 1280 x 940 points: tall enough for the whole Settings dialog.
+    fs.writeFileSync(home + "/window.json", JSON.stringify({ state: "windowed", bounds: [60, 30, 1280, 940] }));
   ' "${DEFAULT_LAYOUT:-$HOME/.config/herdr-app/layouts/main.json}" "$("${HERDR_APP_CLI:-herdr-app}" --version | awk '{print $NF}')"
 }
 

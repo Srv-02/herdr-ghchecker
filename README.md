@@ -9,7 +9,7 @@
 - **Pull requests:** state, branch, checks and review at a glance, and a merge box that offers only what the repository allows.
 - **Actions:** runs with status, workflow, trigger, branch and time; jobs, steps and the failure log; re-run or cancel.
 - **At a glance:** stars, forks, watchers, open issues and pull requests, and the latest release in the status bar.
-- **Compact:** one line per row at the press of a button, and smooth scrolling through hundreds of issues.
+- **Compact:** one line per row if you like, and smooth scrolling through hundreds of issues.
 - **Quiet:** syncs only while the panel is shown, every 60 s, every 12 s while a run is in progress.
 
 <br>
@@ -29,6 +29,7 @@ Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/Srv-02
 Then click `GitHub` in the tab bar.
 
 - **Needs** Herdr on macOS and the [GitHub CLI](https://cli.github.com), signed in (`gh auth login`).
+- **Update:** the gear turns gold when a new release is out; ask your agent the same way.
 - **By hand, removing, keys:** see the [guide](docs/GUIDE.md#install).
 
 ## Features
@@ -66,15 +67,23 @@ Then click `GitHub` in the tab bar.
 
 ![A failed run with its jobs, steps and log](screenshots/run-overlay.png)
 
+### Settings
+
+- **The gear** opens the settings: compact rows, labels shown or hidden, in color or mono, and who counts as external.
+- **Updates:** once a day the panel asks GitHub for a new release. The gear turns gold when one is out, and the dialog tells you what to ask your agent.
+
+![The Settings dialog](screenshots/settings.png)
+
 ### And
 
-- **The repository name** in the header opens it on GitHub.
+- **The header:** the repository name opens it on GitHub; refresh turns while it syncs and turns red when GitHub can't be reached; the funnel shows search and sort.
 - **Remote terminals:** a tab on an SSH machine shows the repository of its folder there.
 - **No repository here:** a tab outside a GitHub repository shows an empty panel, never the last repository.
 
 ## Documentation
 
 - **[Guide](docs/GUIDE.md):** every feature, setting and key in detail, and what it runs.
+- **[RECIPE.md](RECIPE.md):** the mod as a brief to build it from scratch.
 - **[Development](docs/GUIDE.md#development):** tests, lint and screenshots.
 
 ## Credits

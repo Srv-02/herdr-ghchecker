@@ -137,13 +137,13 @@ The panel takes these commands, for `keys.json` (`"alt-g i": "ghchecker:issues"`
 
 ## Settings
 
-The gear at the right of the header opens the Settings dialog. Every change is saved at once to `ghchecker.json` in the Herdr app folder (`~/.config/herdr-app/ghchecker.json`) and the panel uses it right away. The file can also be edited by hand: a missing file means the defaults; a broken file, or a value of the wrong type, means the default for that value (the dialog then refuses to save and says so).
+The gear at the right of the header opens the Settings dialog; **Save** writes the changed values to `ghchecker.json` in the Herdr app folder (`~/.config/herdr-app/ghchecker.json`) and the panel uses them right away, **Cancel** or Esc leaves everything as it was. The file can also be edited by hand: a missing file means the defaults; a broken file, or a value of the wrong type, means the default for that value (the dialog then refuses to save and says so).
 
 | Key | Type | Default | What it does |
 |---|---|---|---|
-| `update_check` | true / false | `true` | Once a day, asks GitHub for the latest release of GitHub Checker. |
+| `update_check` | true / false | `true` | Once a day, asks GitHub whether a new version exists. Nothing about you or your repositories is sent, but GitHub sees your IP address. |
 | `compact_rows` | true / false | `false` | One line per issue, pull request or run: the number and the title. |
-| `labels.show` | true / false | `true` | Labels in the lists and in the issue and pull request view. |
+| `labels.show` | true / false | `true` | Labels in the lists and in the overlay; the filter still finds them when they are hidden. |
 | `labels.color` | `"color"` / `"mono"` | `"color"` | Each label in its GitHub color, or all in one quiet color of the theme. |
 | `external.includeBots` | true / false | `false` | The External filter also lists items opened by bots (github-actions, dependabot, any `[bot]` account). |
 | `external.ignoreAuthors` | list of logins | `[]` | Logins the External filter never lists, e.g. teammates. |
@@ -161,10 +161,10 @@ A dotted key (`"external.includeBots": true`) works too. All settings are define
 ## Updates
 
 - Once a day one panel (the one holding a lease in shared `ghchecker.lease`) asks `https://api.github.com/repos/Srv-02/herdr-ghchecker/releases/latest`, without a token and without anything about you. The answer is kept in shared `ghchecker.update`; `update_check` off sends nothing.
-- A newer release colors the gear blue, with `<version> available` in its tooltip. The dialog shows the version, a link to the release notes and what to ask your agent:
+- A newer release turns the gear gold, with a gold dot and a slow shine, and `<version> available` in its tooltip. The dialog then opens with a gold box: `GitHub Checker <version> is available`, a link to the release notes, and the line to give your agent in Herdr, with **Copy**:
 
   ```text
-  Read ~/.config/herdr-app/AGENTS.md, then add this mod: https://github.com/Srv-02/herdr-ghchecker/tree/main
+  Update this mod: https://github.com/Srv-02/herdr-ghchecker/tree/main
   ```
 
 - **Check now** in the dialog asks at once, also with `update_check` off.
