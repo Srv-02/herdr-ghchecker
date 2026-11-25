@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { matches, filterIssues, filterPrs, filterRuns, workflowsOf, SORTS, DEFAULTS, filtersActive } from "../mods/ghchecker/lib/filters.js";
+import { matches, filterIssues, filterPrs, filterRuns, workflowsOf, SORTS, DEFAULTS, hiddenFiltersSet } from "../mods/ghchecker/lib/filters.js";
 
 const ME = "mona";
 const item = (number, login, extra = {}) => ({ number, title: `Item ${number}`, author: { login, ...(extra.bot ? { is_bot: true } : {}) }, labels: [], assignees: [],
@@ -55,15 +55,15 @@ test("the sort orders", () => {
   assert.deepEqual(Object.keys(SORTS), ["newest", "oldest", "updated"]);
 });
 
-test("filtersActive: a query or any filter off its default marks the filter button", () => {
-  assert.equal(filtersActive("issues", { ...DEFAULTS.issues }, ""), false);
-  assert.equal(filtersActive("issues", {}, ""), false, "missing keys are defaults");
-  assert.equal(filtersActive("issues", { ...DEFAULTS.issues }, "  bug "), true);
-  assert.equal(filtersActive("issues", { ...DEFAULTS.issues, state: "closed" }), true);
-  assert.equal(filtersActive("issues", { ...DEFAULTS.issues, group: true }), true);
-  assert.equal(filtersActive("prs", { ...DEFAULTS.prs, who: "review" }), true);
-  assert.equal(filtersActive("prs", { ...DEFAULTS.prs, sort: "newest" }), true);
-  assert.equal(filtersActive("actions", { show: "all", workflow: null }), false);
-  assert.equal(filtersActive("actions", { show: "all", workflow: "CI" }), true);
-  assert.equal(filtersActive("unknown", {}, ""), false);
+test("hiddenFiltersSet: the hidden search, sort or workflow menu is set", () => {
+  assert.equal(hiddenFiltersSet("issues", { ...DEFAULTS.issues }, ""), false);
+  assert.equal(hiddenFiltersSet("issues", {}, ""), false, "missing keys are defaults");
+  assert.equal(hiddenFiltersSet("issues", { ...DEFAULTS.issues }, "  bug "), true);
+  assert.equal(hiddenFiltersSet("issues", { ...DEFAULTS.issues, sort: "oldest" }), true);
+  assert.equal(hiddenFiltersSet("issues", { ...DEFAULTS.issues, state: "closed", group: true, who: "mine" }), false, "the visible filters don't count");
+  assert.equal(hiddenFiltersSet("prs", { ...DEFAULTS.prs, sort: "newest" }), true);
+  assert.equal(hiddenFiltersSet("prs", { ...DEFAULTS.prs, who: "review" }), false);
+  assert.equal(hiddenFiltersSet("actions", { show: "failed", workflow: null }), false);
+  assert.equal(hiddenFiltersSet("actions", { show: "all", workflow: "CI" }), true);
+  assert.equal(hiddenFiltersSet("unknown", {}, "x"), false);
 });

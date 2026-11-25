@@ -46,12 +46,12 @@ export function button(id, label, t, onClick, { primary = false, tone = null, in
 
 // A segmented control: items [[key, label]], the one equal to `value` selected.
 export function segmented(id, items, value, t, onPick) {
-  return h_flex().id(id).flex_none().p(2).gap(2).rounded(8).border_1().border_color(t.border)
+  return h_flex().id(id).flex_none().gap(1)
     .children(items.map(([key, label]) => {
       const on = key === value;
-      return div().id(`${id}-${key}`).px(7).py(2).rounded(6).text_size(12).cursor_pointer()
+      return h_flex().id(`${id}-${key}`).h(22).px(8).items_center().rounded(6).text_size(12).cursor_pointer()
         .bg(on ? t.selected : CLEAR).text_color(on ? t.foreground : t.muted)
-        .hover((s) => s.text_color(t.foreground))
+        .hover((s) => s.bg(on ? t.selected : t.hover))
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
         .on_click((_e, cx) => onPick(key, cx)).child(label);
     }));

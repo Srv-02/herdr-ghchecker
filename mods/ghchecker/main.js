@@ -9,11 +9,11 @@ import { account, repoOf } from "./gh.js";
 import { Store } from "./store.js";
 import { Viewer } from "./viewer.js";
 import { RunView } from "./run.js";
-import { tones, alpha, glyph, glyphOf, spinner, button, segmented, chip, labelChip, blankslate, openUrl, MONO, CLEAR } from "./ui.js";
+import { tones, glyph, glyphOf, button, segmented, chip, labelChip, blankslate, openUrl, MONO, CLEAR } from "./ui.js";
 import { issueState, prState, runState, checksSummary, reviewOf, actionsDot, running } from "./lib/status.js";
 import { ago, age, day, duration } from "./lib/time.js";
 import { groupByMilestone } from "./lib/milestones.js";
-import { SORTS, DEFAULTS, filterIssues, filterPrs, filterRuns, workflowsOf, filtersActive } from "./lib/filters.js";
+import { SORTS, DEFAULTS, filterIssues, filterPrs, filterRuns, workflowsOf, hiddenFiltersSet } from "./lib/filters.js";
 import { locationOf, locationKey, shortPath, repoUrl } from "./lib/location.js";
 import { loadSettings, defaults } from "./lib/settings.js";
 import { statsOf, statsDue } from "./lib/stats.js";
@@ -258,73 +258,68 @@ export default class GhChecker extends View {
   }
 
   // ---- drawing: bars ----
+  // The top, as Filer Pro's: the title, the repository dim on the right (a link to it), 24 px icon buttons without a
+  // border. No status text: the refresh icon turns while a sync runs and turns red when the last one failed (the
+  // reason and the last update in its tooltip).
   header(t, c, repo) {
-    const e = repo ? this.store.entry(repo) : null, live = (e?.data.runs ?? []).filter(running).length;
-    let status = null, tone = t.muted;
-    if (e?.syncing) status = e.at ? `Updated ${ago(new Date(e.at).toISOString())} · syncing` : "Syncing…";
-    else if (e?.error) { status = `Sync failed${e.at ? ` · updated ${ago(new Date(e.at).toISOString())}` : ""}`; tone = c.failure; }
-    else if (live && this.tab === "actions") { status = `${live} run${live > 1 ? "s" : ""} in progress · every ${LIVE / 1000} s`; tone = c.running; }
-    else if (e?.at) status = `Updated ${ago(new Date(e.at).toISOString())}`;
+    const e = repo ? this.store.entry(repo) : null, failed = Boolean(e?.error) && !e?.syncing;
     const where = repo === null ? shortPath(this.where().cwd, home()) : repo;
-    return h_flex().h(44).flex_none().pl(14).pr(10).gap(8).items_center().border_b(1).border_color(t.border)
-      .child(glyph("github", 15, t.foreground))
-      .child(div().font_semibold().child("GitHub"))
-      .child(v_flex().flex_1().min_w(0).items_end()
+    return h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
+      .child(h_flex().flex_none().gap(7).items_center().font_semibold().child(glyph("github", 14, t.foreground)).child("GitHub"))
+      .child(h_flex().flex_1().min_w(0).justify_end().text_size(12).text_color(t.dim)
         .child(repoUrl(repo)
           // The name opens the repository on GitHub.
-          ? div().id("repo-link").max_w_full().truncate().text_size(12).text_color(t.foreground).cursor_pointer().tooltip("Open on GitHub")
+          ? div().id("repo-link").min_w(0).truncate().cursor_pointer().tooltip("Open on GitHub")
             .hover((s) => s.underline()).on_mouse_down("left", (_e, cx) => cx.stop_propagation())
             .on_click(() => openUrl(repoUrl(repo))).child(repo)
-          : div().max_w_full().truncate().text_size(12).text_color(t.muted).font_family(MONO).child(where ?? ""))
-        .when(Boolean(status), (x) => x.child(div().id("sync-status").max_w_full().truncate().text_size(11).text_color(tone).when(Boolean(e?.error), (y) => y.tooltip(e.error)).child(status))))
-      .when(Boolean(repo), (x) => x.child(this.headButton("filter", "filter", this.filtering, filtersActive(this.tab, this.f[this.tab], this.query[this.tab]),
-        this.filtering ? "Hide filters" : "Show filters", (cx) => this.setFiltering(!this.filtering, cx), t, c)))
-      .when(Boolean(repo), (x) => x.child(this.headButton("compact", "list", this.compact, false,
-        this.compact ? "Two lines per row" : "Compact view", (cx) => this.setCompact(!this.compact, cx), t, c)))
-      .when(Boolean(repo), (x) => x.child(div().id("refresh").size(30).flex_none().flex().items_center().justify_center().rounded(7).border_1().border_color(t.border)
-        .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Refresh")
-        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-        .on_click((_e, cx) => this.sync(cx))
-        .child(e?.syncing ? spinner(13, t.muted) : glyph("refresh", 13, t.muted))));
+          : div().min_w(0).truncate().child(where ?? "")))
+      .when(Boolean(repo), (x) => x
+        .child(this.headButton("filter", "filter", this.filtering, hiddenFiltersSet(this.tab, this.f[this.tab], this.query[this.tab]) && !this.filtering,
+          this.filtering ? "Hide search and sort" : "Search and sort", (cx) => this.setFiltering(!this.filtering, cx), t, c))
+        .child(this.headButton("compact", "list", this.compact, false, this.compact ? "Two lines per row" : "One line per row", (cx) => this.setCompact(!this.compact, cx), t, c))
+        .child(this.headButton("refresh", "refresh", false, false,
+          e?.syncing ? "Syncing…" : failed ? `Sync failed: ${e.error}. Click to try again.` : e?.at ? `Refresh · updated ${ago(new Date(e.at).toISOString())}` : "Refresh",
+          (cx) => this.sync(cx), t, c, { spin: Boolean(e?.syncing), alarm: failed })));
   }
 
-  // A square button in the header; `marked` shows a dot (a filter is set while the bar is hidden).
-  headButton(id, name, on, marked, tip, onClick, t, c) {
-    return div().id(id).relative().size(30).flex_none().flex().items_center().justify_center().rounded(7).border_1()
-      .border_color(on ? alpha(c.link, "99") : t.border).bg(on ? alpha(c.link, "1f") : CLEAR)
-      .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip(tip)
+  // A header button as Filer Pro's: a 14 px icon in a 24 px hit area; on: the selected background. `marked`: a grey
+  // dot (a hidden search or sort is set); `alarm`: the icon and a dot in red.
+  headButton(id, name, on, marked, tip, onClick, t, c, { spin = false, alarm = false } = {}) {
+    const icon = glyph(name, 14, alarm ? c.failure : on ? t.foreground : t.muted);
+    return div().id(id).relative().w(24).h(24).flex_none().flex().items_center().justify_center().rounded(6)
+      .when(on, (e) => e.bg(t.selected)).cursor_pointer().hover((s) => s.bg(on ? t.selected : t.hover)).tooltip(tip)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click((_e, cx) => onClick(cx))
-      .child(glyph(name, 13, on || marked ? c.link : t.muted))
-      .when(marked && !on, (e) => e.child(div().absolute().top(4).right(4).size(6).rounded(3).bg(c.link)));
+      .child(spin ? icon.spin(900) : icon)
+      .when(marked || alarm, (e) => e.child(div().absolute().top(3).right(3).size(5).rounded(3).bg(alarm ? c.failure : t.muted)));
   }
 
   tabs(t, c) {
     const d = this.data(), dot = actionsDot(d.runs, d.info?.defaultBranchRef?.name);
-    return h_flex().flex_none().px(6).py(4).gap(4).border_b(1).border_color(t.border)
+    return h_flex().h(32).flex_none().px(8).gap(2).items_center().border_b(1).border_color(t.border)
       .children(TABS.map(([key, label, name]) => {
         const on = key === this.tab;
-        return h_flex().id(`tab-${key}`).flex_1().min_w(0).h(26).gap(5).text_size(12).items_center().justify_center().rounded(7).cursor_pointer()
+        return h_flex().id(`tab-${key}`).flex_1().min_w(0).h(24).gap(6).text_size(12).items_center().justify_center().rounded(6).cursor_pointer()
           .bg(on ? t.selected : CLEAR).text_color(on ? t.foreground : t.muted).when(on, (e) => e.font_medium())
           .hover((s) => s.bg(on ? t.selected : t.hover))
           .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
           .on_click((_e, cx) => this.setTab(key, cx))
-          .child(glyph(name, 14, on && key !== "actions" ? c.open : on ? t.foreground : t.muted))
+          .child(glyph(name, 12, on && key !== "actions" ? c.open : on ? t.foreground : t.muted))
           .child(label)
-          .when(key === "actions" && Boolean(dot), (e) => e.child(div().size(7).flex_none().rounded(4).bg(dot === "running" ? c.running : c.failure)));
+          .when(key === "actions" && Boolean(dot), (e) => e.child(div().size(6).flex_none().rounded(3).bg(dot === "running" ? c.running : c.failure)));
       }));
   }
 
   filterInput(tab, t, sortKey) {
     return h_flex().gap(6)
-      .child(div().id(`filter-${tab}`).flex_1().min_w(0).h(26).px(8).flex().items_center().rounded(7).border_1().border_color(t.border).cursor_text()
+      .child(div().id(`filter-${tab}`).flex_1().min_w(0).h(24).px(8).flex().items_center().rounded(6).border_1().border_color(t.border).cursor_text()
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
         .child(Input.new(this.inputs[tab]).w_full().h_full().text_size(12).text_color(t.foreground)))
       .child(this.dropButton(`sort-${tab}`, SORTS[sortKey]?.label ?? "Newest", t,
         () => this.openMenu("sort", tab, Object.entries(SORTS).map(([k, s]) => [k, s.label]), sortKey)));
   }
   dropButton(id, label, t, onClick, grow = false) {
-    return h_flex().id(id).h(26).px(8).gap(6).items_center().rounded(7).border_1().border_color(t.border).text_size(12).text_color(t.muted)
+    return h_flex().id(id).h(24).px(8).gap(4).items_center().rounded(6).text_size(12).text_color(t.muted)
       .when(grow, (e) => e.flex_1().min_w(0).justify_between()).when(!grow, (e) => e.flex_none())
       .cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
@@ -333,24 +328,24 @@ export default class GhChecker extends View {
   }
 
   filterBar(t, c) {
-    const d = this.data(), bar = v_flex().flex_none().px(6).py(5).gap(5).border_b(1).border_color(t.border);
+    const d = this.data(), bar = v_flex().flex_none().px(8).py(6).gap(6).border_b(1).border_color(t.border);
     if (this.tab === "issues") {
       const f = this.f.issues;
-      return bar.child(this.filterInput("issues", t, f.sort))
+      return bar.when(this.filtering, (x) => x.child(this.filterInput("issues", t, f.sort)))
         .child(h_flex().gap(6).items_center()
           .child(segmented("issue-state", [["open", "Open"], ["closed", "Closed"]], f.state, t, (k, cx) => this.setFilter("issues", { state: k }, cx)))
-          .child(h_flex().id("group-toggle").h(24).px(7).gap(5).flex_none().items_center().rounded(7).border_1().text_size(12).cursor_pointer()
-            .border_color(f.group ? alpha(c.link, "99") : t.border).bg(f.group ? alpha(c.link, "1f") : CLEAR).text_color(f.group ? t.foreground : t.muted)
-            .hover((s) => s.text_color(t.foreground)).tooltip("Group by milestone")
+          .child(h_flex().id("group-toggle").h(22).px(8).gap(5).flex_none().items_center().rounded(6).text_size(12).cursor_pointer()
+            .bg(f.group ? t.selected : CLEAR).text_color(f.group ? t.foreground : t.muted)
+            .hover((s) => s.bg(f.group ? t.selected : t.hover)).tooltip("Group by milestone")
             .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
             .on_click((_e, cx) => this.setFilter("issues", { group: !f.group }, cx))
-            .child(glyph("milestone", 12, f.group ? c.link : t.muted)).child("Milestones"))
+            .child(glyph("milestone", 12, f.group ? t.foreground : t.muted)).child("Milestones"))
           .child(div().flex_1())
           .child(segmented("issue-who", [["all", "All"], ["mine", "Mine"], ["external", "External"]], f.who, t, (k, cx) => this.setFilter("issues", { who: k }, cx))));
     }
     if (this.tab === "prs") {
       const f = this.f.prs;
-      return bar.child(this.filterInput("prs", t, f.sort))
+      return bar.when(this.filtering, (x) => x.child(this.filterInput("prs", t, f.sort)))
         .child(h_flex().gap(6).items_center()
           .child(segmented("pr-state", [["open", "Open"], ["merged", "Merged"], ["closed", "Closed"]], f.state, t, (k, cx) => this.setFilter("prs", { state: k }, cx)))
           .child(div().flex_1())
@@ -358,8 +353,8 @@ export default class GhChecker extends View {
     }
     const f = this.f.actions, flows = workflowsOf(d.runs);
     return bar.child(h_flex().gap(6).items_center()
-      .child(this.dropButton("workflow", f.workflow ?? "All workflows", t,
-        () => this.openMenu("workflow", "actions", [["", "All workflows"], ...flows.map((w) => [w, w])], f.workflow ?? ""), true))
+      .when(this.filtering, (x) => x.child(this.dropButton("workflow", f.workflow ?? "All workflows", t,
+        () => this.openMenu("workflow", "actions", [["", "All workflows"], ...flows.map((w) => [w, w])], f.workflow ?? ""), true)))
       .child(segmented("run-show", [["all", "All"], ["failed", "Failed"], ["branch", "This branch"]], f.show, t, (k, cx) => this.setFilter("actions", { show: k }, cx))));
   }
 
@@ -367,7 +362,7 @@ export default class GhChecker extends View {
   statusBar(t) {
     const d = this.data(), { entries, release } = statsOf(d.stats, { issues: d["issues:open"], prs: d["prs:open"] });
     const item = (id, name, tip, value) => h_flex().id(id).flex_none().gap(5).items_center().tooltip(tip).child(glyph(name, 13, t.muted)).child(String(value));
-    return h_flex().id("status-bar").h(34).flex_none().px(14).gap(14).items_center().border_t(1).border_color(t.border).bg(t.chrome ?? t.background)
+    return h_flex().id("status-bar").h(30).flex_none().px(14).gap(12).items_center().border_t(1).border_color(t.border).bg(t.chrome ?? t.background)
       .text_size(11.5).text_color(t.muted)
       .children(entries.map((e) => item(`stat-${e.key}`, e.icon, e.tip, e.value)
         .when(Boolean(e.tab), (x) => x.cursor_pointer().hover((s) => s.text_color(t.foreground))
@@ -497,7 +492,7 @@ export default class GhChecker extends View {
     return this.shell(t)
       .child(this.header(t, c, this.shown))
       .child(this.tabs(t, c))
-      .when(this.filtering, (x) => x.child(this.filterBar(t, c)))
+      .child(this.filterBar(t, c))
       .child(this.list(t, c))
       .child(this.statusBar(t));
   }

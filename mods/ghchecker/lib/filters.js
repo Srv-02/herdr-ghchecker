@@ -46,13 +46,17 @@ export function filterRuns(runs, { show = "all", workflow = null } = {}, branch 
 // The workflows that appear in the runs, for the workflow menu.
 export const workflowsOf = (runs) => [...new Set((runs ?? []).map((r) => r.workflowName).filter(Boolean))].sort();
 
-// The defaults of each tab's filters: the filter button is marked while one differs (the bar may be hidden).
+// The defaults of each tab's filters.
 export const DEFAULTS = {
   issues: { state: "open", who: "all", sort: "newest", group: false },
   prs: { state: "open", who: "all", sort: "updated" },
   actions: { show: "all", workflow: null },
 };
-export function filtersActive(tab, f = {}, query = "") {
-  const base = DEFAULTS[tab] ?? {};
-  return Boolean(String(query ?? "").trim()) || Object.keys(base).some((k) => (f[k] ?? base[k]) !== base[k]);
+
+// The filter button hides the text filter and the sort menu (on Actions: the workflow menu). While they are
+// hidden, it is marked when one of them is set, so nothing filters unnoticed.
+export function hiddenFiltersSet(tab, f = {}, query = "") {
+  if (tab === "actions") return Boolean(f.workflow);
+  const base = DEFAULTS[tab];
+  return Boolean(base) && (Boolean(String(query ?? "").trim()) || (f.sort ?? base.sort) !== base.sort);
 }

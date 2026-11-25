@@ -70,11 +70,12 @@ Then click `GitHub` in the tab bar.
 
 ### Syncing
 
-- Switching to a repository shows its last state at once, from memory or from the cache file, and syncs in the background when that state is older than 15 seconds. The header says `Updated 2m ago · syncing`.
-- While the panel is shown: a full sync every 60 seconds; every 12 seconds the runs alone while a run is queued or in progress (`1 run in progress · every 12 s`). Nothing runs while the panel is hidden or the window is not visible.
-- The refresh button in the header syncs at once. A failed sync keeps the last lists and says `Sync failed` (the error is in its tooltip).
+- Switching to a repository shows its last state at once, from memory or from the cache file, and syncs in the background when that state is older than 15 seconds; the refresh icon turns meanwhile.
+- While the panel is shown: a full sync every 60 seconds; every 12 seconds the runs alone while a run is queued or in progress (the yellow dot on Actions). Nothing runs while the panel is hidden or the window is not visible.
+- The refresh button in the header syncs at once. A failed sync keeps the last lists and turns the refresh icon red (the error is in its tooltip).
 - Lists: up to 200 issues and 100 pull requests per state, the 40 latest runs. Only the rows on screen are drawn, so long lists scroll smoothly.
-- **Filters:** the funnel in the header shows or hides the filter bar (text filter, sort, state, All / Mine / …). A dot on the funnel says a filter is set while the bar is hidden.
+- **Search and sort:** the funnel in the header shows or hides the text filter and the sort menu (on Actions: the workflow menu). State, All / Mine / … and Milestones stay visible. A dot on the funnel says the hidden search, sort or workflow is set.
+- **The refresh icon** turns while a sync runs and turns red with a dot when the last sync failed (offline, signed out); its tooltip says why and when the panel was last updated.
 - **Compact view:** the list button left of refresh switches between two lines per row (title, then number, age, author, labels) and one line (number and title). Long titles are cut at the end of the line; the overlay shows them in full.
 - A click into the panel (or into another panel) keeps the repository of the last focused terminal.
 
@@ -129,7 +130,7 @@ The panel takes these commands, for `keys.json` (`"alt-g i": "ghchecker:issues"`
 | `group` | Groups issues by milestone, or stops |
 | `open` | Opens the first row in its overlay |
 | `compact` | Switches between one and two lines per row |
-| `filter` | Shows or hides the filter bar |
+| `filter` | Shows or hides search and sort |
 | `refresh` | Syncs now |
 
 ## Settings
