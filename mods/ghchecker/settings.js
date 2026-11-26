@@ -157,19 +157,22 @@ export class SettingsDialog {
         .child(link(t, "settings-github", "GitHub", "github", GITHUB_URL))
         .child(link(t, "settings-coffee", "Buy me a coffee", "coffee", COFFEE_URL)),
     ];
-    return v_flex().id("settings").track_focus(this.handle)
+    // The overlay has no frame and is only the room for the dialog: the card below is as tall as its content, centered,
+    // and never taller than the room; then the body shrinks and scrolls, header and footer stay.
+    const card = v_flex().id("settings").track_focus(this.handle)
       .on_key_down((e, cx) => { if (e.key === "escape") { this.close(); cx.stop_propagation(); } })
-      .size_full().bg(t.popover).text_color(t.foreground)
+      .w_full().max_h_full().overflow_hidden().rounded(10).border_1().border_color(t.border).shadow_xl().bg(t.popover).text_color(t.foreground)
       .child(h_flex().flex_none().items_center().px(30).pt(22).pb(8)
         .child(div().flex_1().text_size(17).font_medium().child("GitHub Checker Settings"))
         .child(div().id("settings-esc").px(7).py(3).rounded(6).border_1().border_color(t.border).text_size(11.5).text_color(t.muted)
           .cursor_pointer().hover((s) => s.bg(t.hover)).tooltip("Close").on_click(() => this.close()).child("Esc")))
-      .child(div().relative().flex_1().min_h(0)
-        .child(div().id("settings-body").size_full().overflow_y_scroll().child(v_flex().px(30).pb(10).children(body)))
+      .child(v_flex().relative().flex_shrink(1).min_h(0)
+        .child(div().id("settings-body").flex_shrink(1).min_h(0).overflow_y_scroll().child(v_flex().px(30).pb(10).children(body)))
         .child(Scrollbar.vertical("settings-body").absolute().inset_0()))
       .child(h_flex().flex_none().gap(10).px(30).py(16).items_center().border_t(1).border_color(t.border)
         .child(div().flex_1().min_w(0).text_size(11.5).text_color(t.ansi1).child(this.error ?? ""))
         .child(button(t, "settings-cancel", "Cancel", () => this.close()))
         .child(button(t, "settings-save", this.busy ? "Saving…" : "Save", (cx) => this.save(cx), { primary: true })));
+    return v_flex().size_full().justify_center().child(card);
   }
 }
