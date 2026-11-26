@@ -171,8 +171,10 @@ export default class GhChecker extends View {
     const out = await updateCheck({ enabled, state: shared("ghchecker.update"), local, now: Date.now(), fetch: () => fetchLatest(globalThis.fetch, (ms) => cx.sleep(ms)) });
     if (out.state !== undefined) setShared("ghchecker.update", out.state);
   }
+  // The overlay is only the room (at most 90 % of the window, no frame); the dialog inside is as tall as its content
+  // at any font and zoom, and its body scrolls when the room is smaller.
   openSettings() {
-    openOverlay({ mod: MOD, kind: "dialog", modal: true, width: 620, height: 0.9, props: { settings: true } });
+    openOverlay({ mod: MOD, kind: "dialog", modal: true, frame: "none", width: 620, height: 0.9, props: { settings: true } });
   }
   sync(cx, full = true, parts = this.parts()) {
     const repo = this.shown;
